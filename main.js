@@ -2754,10 +2754,9 @@ return {
       if (!r || !r.ok) return false;
       var result = r.json();
       if (saveSession(p, result, install, null)) { log(p.name + ': sessione ripristinata senza nuova verifica.'); return true; }
-      if (toggle('autoVerify', true) && t - lastAuto > AUTO_VERIFY_GAP && !pendingValid()) {
-        lastAuto = t;
-        if (openChallenge(p, result, install)) notify(p.name + ': completa la verifica nella pagina appena aperta.');
-      }
+      // SILENT GUARD 318: never open an auth WebView from the audio resolver.
+      // A challenge is handled only by an explicit user-initiated verification.
+      if (toggle('autoVerify', true)) log(p.name + ': verifica interattiva rinviata; usa Verifica ora nelle impostazioni.');
     } catch (ignored) {}
     return false;
   }
@@ -3767,8 +3766,10 @@ return {
       });
       if (!missing.length) { log('Avvio: tutte le sessioni Aura già valide.'); return; }
       log('Avvio: verifica automatica delle sessioni mancanti: ' + missing.join(', ') + '.');
+      // SILENT GUARD 318: startup must not open auth windows during playback.
+      // Do not start the interactive queue until the user presses Verifica ora.
       myspoti.storage.set(QUEUE_KEY, missing);
-      nextInQueue();
+      log('Avvio: verifica interattiva rinviata alle impostazioni.');
     } catch (e) { log('Avvio: verifica automatica non disponibile: ' + String(e)); }
   }
   myspoti.on('auth', finishVerification);
