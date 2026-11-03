@@ -1,0 +1,239 @@
+{
+  "id": "aura.eclipse.tigro",
+  "name": "Aura Eclipse · TWC",
+  "version": "1.3.5",
+  "versionCode": 317,
+  "apiVersion": 1,
+  "minAppVersion": "2.1.0",
+  "author": "kekkox88",
+  "description": "Aura Eclipse TWC: tre motori, un solo obiettivo. 🐯 Tigro per FLAC e Hi-Res, 🐳 Whale per brani rari e fallback, 🐦 Colibrì per risparmiare dati. Supporta account personali, Vault e diagnostica. Autore: kekkox88. Ringraziamenti: solidsnakeater, PUNITOR_211080 e TheWinner02.",
+  "category": "tools",
+  "tags": [
+    "audio",
+    "flac",
+    "lossless",
+    "music",
+    "speed"
+  ],
+  "replaces": [
+    "community.monoflac"
+  ],
+  "actions": [
+    {
+      "name": "audio.source",
+      "why": "Cerca audio compatibile fra le fonti attivate"
+    },
+    {
+      "name": "download.source",
+      "why": "Fornisce stream compatibili per il download"
+    },
+    {
+      "name": "network",
+      "hosts": [
+        "*.qobuz.com",
+        "*.saavncdn.com",
+        "*.ultramax.vip",
+        "*.vercel.app",
+        "api.zarz.moe",
+        "eclipse.ultramax.vip",
+        "music-api.gdstudio.xyz",
+        "music.163.com",
+        "song.link",
+        "streaming-qobuz-std.akamaized.net",
+        "tidal.com",
+        "www.jiosaavn.com",
+        "www.qobuz.com"
+      ],
+      "why": "Interroga le fonti audio configurate"
+    },
+    {
+      "name": "webview.auth",
+      "why": "Apre la verifica richiesta dal server per ogni fonte"
+    },
+    {
+      "name": "storage",
+      "why": "Conserva sessioni, abbinamenti e stato dei pool"
+    },
+    {
+      "name": "settings.page",
+      "why": "Configura motori, account e diagnostica"
+    },
+    {
+      "name": "notify",
+      "why": "Mostra l'esito delle verifiche e gli avvisi"
+    },
+    {
+      "name": "webview.page",
+      "why": "Apre il Vault degli account e lo stato delle fonti"
+    }
+  ],
+  "media": {
+    "hosts": [
+      "*.audio.tidal.com",
+      "*.jiosaavn.com",
+      "*.music.126.net",
+      "*.music.163.com",
+      "*.saavncdn.com",
+      "*.ultramax.vip",
+      "music-api.gdstudio.xyz",
+      "music.163.com",
+      "streaming-qobuz-std.akamaized.net"
+    ]
+  },
+  "settings": [
+    {
+      "key": "tigroHQ",
+      "type": "toggle",
+      "label": "🐯 TIGRO · HQ Fast",
+      "description": "FLAC e Hi-Res con ricerca rapida. Modalità predefinita.",
+      "default": true
+    },
+    {
+      "key": "splashWhale",
+      "type": "toggle",
+      "label": "🐳 WHALE · Rare Rescue",
+      "description": "Brani rari, edit e remix: prima HQ, poi MP3/AAC. Prevale su Tigro.",
+      "default": false
+    },
+    {
+      "key": "colibriEco",
+      "type": "toggle",
+      "label": "🐦 COLIBRÌ · Eco Stream",
+      "description": "Audio compresso per risparmiare dati. Prevale sugli altri motori.",
+      "default": false
+    },
+    {
+      "key": "autoVerify",
+      "type": "toggle",
+      "label": "SESSIONI AURA · Verifica automatica",
+      "description": "Apre la verifica quando richiesta. Attiva di default.",
+      "default": true
+    },
+    {
+      "key": "verify_all",
+      "type": "button",
+      "label": "SESSIONI AURA · Verifica ora",
+      "description": "Controlla le sessioni Aura che richiedono accesso."
+    },
+    {
+      "key": "forceVerify",
+      "type": "button",
+      "label": "SESSIONI AURA · Riprova accesso",
+      "description": "Forza una nuova verifica delle sessioni Aura."
+    },
+    {
+      "key": "zooSourceStatus",
+      "type": "button",
+      "label": "DIAGNOSTICA · Riepilogo fonti",
+      "description": "Mostra fonti e account configurati, senza credenziali."
+    },
+    {
+      "key": "devLogs",
+      "type": "toggle",
+      "label": "DIAGNOSTICA · Log Dev",
+      "description": "Mostra fonti, tempi, codec dichiarati ed errori.",
+      "default": false
+    },
+    {
+      "key": "clearCache",
+      "type": "button",
+      "label": "MANUTENZIONE · Svuota cache",
+      "description": "Cancella abbinamenti e sospensioni, non gli account."
+    },
+    {
+      "key": "resetQobuzCooldown",
+      "type": "button",
+      "label": "QOBUZ · Azzera attese",
+      "description": "Rimuove i cooldown temporanei, senza cancellare account."
+    },
+    {
+      "key": "forget",
+      "type": "button",
+      "label": "MANUTENZIONE · Sessioni Aura",
+      "description": "Cancella le sessioni Aura, non le credenziali."
+    },
+    {
+      "key": "qobuzPersonalToken1",
+      "type": "secret",
+      "label": "🔐 Qobuz 1 · Token",
+      "description": "Token personale. Per consultarlo apri il Vault."
+    },
+    {
+      "key": "qobuzPersonalAppId1",
+      "type": "secret",
+      "label": "🔐 Qobuz 1 · App ID",
+      "description": "ID dell’app Qobuz personale."
+    },
+    {
+      "key": "qobuzPersonalAppSecret1",
+      "type": "secret",
+      "label": "🔐 Qobuz 1 · App Secret",
+      "description": "Credenziale privata. Non condividerla."
+    },
+    {
+      "key": "qobuzPersonalToken2",
+      "type": "secret",
+      "label": "🔐 Qobuz 2 · Token",
+      "description": "Token personale. Per consultarlo apri il Vault."
+    },
+    {
+      "key": "qobuzPersonalAppId2",
+      "type": "secret",
+      "label": "🔐 Qobuz 2 · App ID",
+      "description": "ID dell’app Qobuz personale."
+    },
+    {
+      "key": "qobuzPersonalAppSecret2",
+      "type": "secret",
+      "label": "🔐 Qobuz 2 · App Secret",
+      "description": "Credenziale privata. Non condividerla."
+    },
+    {
+      "key": "qobuzPersonalToken3",
+      "type": "secret",
+      "label": "🔐 Qobuz 3 · Token",
+      "description": "Token personale. Per consultarlo apri il Vault."
+    },
+    {
+      "key": "qobuzPersonalAppId3",
+      "type": "secret",
+      "label": "🔐 Qobuz 3 · App ID",
+      "description": "ID dell’app Qobuz personale."
+    },
+    {
+      "key": "qobuzPersonalAppSecret3",
+      "type": "secret",
+      "label": "🔐 Qobuz 3 · App Secret",
+      "description": "Credenziale privata. Non condividerla."
+    },
+    {
+      "key": "eclipseUrl",
+      "type": "secret",
+      "label": "🔐 Deezer 1 · Manifest URL",
+      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+    },
+    {
+      "key": "eclipseUrl2",
+      "type": "secret",
+      "label": "🔐 Deezer 2 · Manifest URL",
+      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+    },
+    {
+      "key": "eclipseUrl3",
+      "type": "secret",
+      "label": "🔐 Deezer 3 · Manifest URL",
+      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+    }
+  ],
+  "welcome": {
+    "message": "Benvenuto in Aura Eclipse 1.3.5 — TWC! Tre motori audio: Tigro per HQ veloce, Whale per brani rari e Colibrì per risparmiare dati. Scegli la modalità nelle Impostazioni.",
+    "steps": [
+      "🐯 Tigro è attivo di default: cerca FLAC e Hi-Res.",
+      "🐳 Attiva Whale per brani rari e fallback MP3/AAC.",
+      "🐦 Attiva Colibrì per consumare meno dati.",
+      "🔐 Configura gli account nelle Impostazioni. Per il Vault scegli «Apri la sua pagina» dal menu dell’estensione.",
+      "🩺 Usa Log Dev solo per diagnosticare problemi."
+    ]
+  },
+  "changelog": "Benvenuto in Aura Eclipse 1.3.5! 🐯 Tigro: ascolto HQ veloce (predefinito). 🐳 Whale: ricerca estesa con fallback MP3/AAC. 🐦 Colibrì: audio compresso per risparmiare dati. 🔐 Per accedere al Vault, apri il menu dell’estensione e seleziona «Apri la sua pagina». Qui puoi consultare le credenziali salvate. ⚙️ Configura gli account nelle Impostazioni. Attiva i Log Dev solo per la diagnostica."
+}
