@@ -3772,6 +3772,16 @@ return {
       log('Avvio: verifica interattiva rinviata alle impostazioni.');
     } catch (e) { log('Avvio: verifica automatica non disponibile: ' + String(e)); }
   }
+  // SILENT GUARD 318: resume queued Aura challenges only after a genuine pause.
+  // Never trigger on end/skip: the next song may start immediately.
+  myspoti.on('playback', function (event) {
+    if (!event || event.type !== 'pause' || !toggle('autoVerify', true)) return;
+    if (pendingValid()) return;
+    var queued = myspoti.storage.get(QUEUE_KEY);
+    if (!Array.isArray(queued) || !queued.length) return;
+    log('Silent Guard: player in pausa; riprendo le verifiche Aura in attesa.');
+    nextInQueue();
+  });
   myspoti.on('auth', finishVerification);
   // COLIBRI277: independent compressed-audio streaming mode; HQ resolver untouched.
   function colibriResolve(track) {
