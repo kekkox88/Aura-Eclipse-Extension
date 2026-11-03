@@ -2549,6 +2549,21 @@ function runSource(src, track) {
 
 
 return {
+  health:function() {
+    // Read-only snapshot: no network calls and never log credential material.
+    var all = tokenPool(), counts = {user:0,pool:0,shared:0}, blocked = {user:0,pool:0,shared:0};
+    for (var i=0;i<all.length;i++) {
+      var group=all[i].source;
+      if (!Object.prototype.hasOwnProperty.call(counts,group)) continue;
+      counts[group]++;
+      if (all[i].deadUntil && all[i].deadUntil>now()) blocked[group]++;
+    }
+    var cached=myspoti.storage.get(TOKENS_KEY);
+    var remoteConfigured=!!trim(String(setting('poolUrl','')||''));
+    var remoteAge=cached && cached.at ? Math.max(0,now()-cached.at) : null;
+    return {counts:counts,blocked:blocked,remoteConfigured:remoteConfigured,
+      remoteCached:!!storedPool(),remoteAgeMinutes:remoteAge===null?null:Math.floor(remoteAge/60000)};
+  },
   resolvePersonal:function(track, download){
     if (!userTokens().length) return null;
     var previous = personalOnly;
@@ -3687,6 +3702,21 @@ return {
     if (!event || event.pressed !== true) return;
     var key = text(event.key);
     if (key === 'verify') key = 'verify_tidal'; // Supports an event queued by version 1.
+    if (key === 'qobuzPoolHealth') {
+      try {
+        var h=LAST_QOBUZ_POOL.health();
+        var groups=[['Personali','user'],['Remoti','pool'],['Integrati','shared']];
+        myspoti.log('[POOL318] Qobuz Eclipse · salute locale (nessun test di rete)');
+        for(var hi=0;hi<groups.length;hi++){
+          var g=groups[hi];
+          myspoti.log('[POOL318] '+g[0]+': disponibili='+ (h.counts[g[1]]-h.blocked[g[1]])+'/'+h.counts[g[1]]+'; cooldown='+h.blocked[g[1]]);
+        }
+        myspoti.log('[POOL318] Pool remoto: '+(h.remoteConfigured?'configurato':'non configurato')+'; cache '+(h.remoteCached?'valida':'assente/scaduta')+(h.remoteAgeMinutes===null?'':'; eta='+h.remoteAgeMinutes+' min'));
+        myspoti.log('[POOL318] Stato dedotto dalla cache; non conferma validita token o raggiungibilita server.');
+        notice('Salute pool Qobuz scritta nel Registro, senza credenziali.');
+      } catch (err) { myspoti.log('[POOL318] Diagnostica non disponibile: '+String(err)); }
+      return;
+    }
     if (key === 'zooSourceStatus') {
       var names=['Qobuz Eclipse','Qobuz Aura','Tidal Aura','NetEase','JioSaavn'];
       var q=0,d=0;
