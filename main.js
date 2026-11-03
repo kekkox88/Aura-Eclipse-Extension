@@ -2756,7 +2756,13 @@ return {
       if (saveSession(p, result, install, null)) { log(p.name + ': sessione ripristinata senza nuova verifica.'); return true; }
       // SILENT GUARD 318: never open an auth WebView from the audio resolver.
       // A challenge is handled only by an explicit user-initiated verification.
-      if (toggle('autoVerify', true)) log(p.name + ': verifica interattiva rinviata; usa Verifica ora nelle impostazioni.');
+      if (toggle('autoVerify', true)) {
+        var queued = myspoti.storage.get(QUEUE_KEY);
+        queued = Array.isArray(queued) ? queued.slice() : [];
+        if (queued.indexOf(p.key) < 0) queued.push(p.key);
+        myspoti.storage.set(QUEUE_KEY, queued);
+        log(p.name + ': verifica interattiva in coda fino alla prossima pausa.');
+      }
     } catch (ignored) {}
     return false;
   }
