@@ -2549,6 +2549,21 @@ function runSource(src, track) {
 
 
 return {
+  health:function() {
+    // Read-only snapshot: no network calls and never log credential material.
+    var all = tokenPool(), counts = {user:0,pool:0,shared:0}, blocked = {user:0,pool:0,shared:0};
+    for (var i=0;i<all.length;i++) {
+      var group=all[i].source;
+      if (!Object.prototype.hasOwnProperty.call(counts,group)) continue;
+      counts[group]++;
+      if (all[i].deadUntil && all[i].deadUntil>now()) blocked[group]++;
+    }
+    var cached=myspoti.storage.get(TOKENS_KEY);
+    var remoteConfigured=!!trim(String(setting('poolUrl','')||''));
+    var remoteAge=cached && cached.at ? Math.max(0,now()-cached.at) : null;
+    return {counts:counts,blocked:blocked,remoteConfigured:remoteConfigured,
+      remoteCached:!!storedPool(),remoteAgeMinutes:remoteAge===null?null:Math.floor(remoteAge/60000)};
+  },
   resolvePersonal:function(track, download){
     if (!userTokens().length) return null;
     var previous = personalOnly;
@@ -2754,9 +2769,14 @@ return {
       if (!r || !r.ok) return false;
       var result = r.json();
       if (saveSession(p, result, install, null)) { log(p.name + ': sessione ripristinata senza nuova verifica.'); return true; }
-      if (toggle('autoVerify', true) && t - lastAuto > AUTO_VERIFY_GAP && !pendingValid()) {
-        lastAuto = t;
-        if (openChallenge(p, result, install)) notify(p.name + ': completa la verifica nella pagina appena aperta.');
+      // SILENT GUARD 318: never open an auth WebView from the audio resolver.
+      // A challenge is handled only by an explicit user-initiated verification.
+      if (toggle('autoVerify', true)) {
+        var queued = myspoti.storage.get(QUEUE_KEY);
+        queued = Array.isArray(queued) ? queued.slice() : [];
+        if (queued.indexOf(p.key) < 0) queued.push(p.key);
+        myspoti.storage.set(QUEUE_KEY, queued);
+        log(p.name + ': verifica interattiva in coda fino alla prossima pausa.');
       }
     } catch (ignored) {}
     return false;
@@ -3682,6 +3702,21 @@ return {
     if (!event || event.pressed !== true) return;
     var key = text(event.key);
     if (key === 'verify') key = 'verify_tidal'; // Supports an event queued by version 1.
+    if (key === 'qobuzPoolHealth') {
+      try {
+        var h=LAST_QOBUZ_POOL.health();
+        var groups=[['Personali','user'],['Remoti','pool'],['Integrati','shared']];
+        myspoti.log('[POOL318] Qobuz Eclipse · salute locale (nessun test di rete)');
+        for(var hi=0;hi<groups.length;hi++){
+          var g=groups[hi];
+          myspoti.log('[POOL318] '+g[0]+': disponibili='+ (h.counts[g[1]]-h.blocked[g[1]])+'/'+h.counts[g[1]]+'; cooldown='+h.blocked[g[1]]);
+        }
+        myspoti.log('[POOL318] Pool remoto: '+(h.remoteConfigured?'configurato':'non configurato')+'; cache '+(h.remoteCached?'valida':'assente/scaduta')+(h.remoteAgeMinutes===null?'':'; eta='+h.remoteAgeMinutes+' min'));
+        myspoti.log('[POOL318] Stato dedotto dalla cache; non conferma validita token o raggiungibilita server.');
+        notice('Salute pool Qobuz scritta nel Registro, senza credenziali.');
+      } catch (err) { myspoti.log('[POOL318] Diagnostica non disponibile: '+String(err)); }
+      return;
+    }
     if (key === 'zooSourceStatus') {
       var names=['Qobuz Eclipse','Qobuz Aura','Tidal Aura','NetEase','JioSaavn'];
       var q=0,d=0;
@@ -3767,10 +3802,22 @@ return {
       });
       if (!missing.length) { log('Avvio: tutte le sessioni Aura già valide.'); return; }
       log('Avvio: verifica automatica delle sessioni mancanti: ' + missing.join(', ') + '.');
+      // SILENT GUARD 318: startup must not open auth windows during playback.
+      // Do not start the interactive queue until the user presses Verifica ora.
       myspoti.storage.set(QUEUE_KEY, missing);
-      nextInQueue();
+      log('Avvio: verifica interattiva rinviata alle impostazioni.');
     } catch (e) { log('Avvio: verifica automatica non disponibile: ' + String(e)); }
   }
+  // SILENT GUARD 318: resume queued Aura challenges only after a genuine pause.
+  // Never trigger on end/skip: the next song may start immediately.
+  myspoti.on('playback', function (event) {
+    if (!event || event.type !== 'pause' || !toggle('autoVerify', true)) return;
+    if (pendingValid()) return;
+    var queued = myspoti.storage.get(QUEUE_KEY);
+    if (!Array.isArray(queued) || !queued.length) return;
+    log('Silent Guard: player in pausa; riprendo le verifiche Aura in attesa.');
+    nextInQueue();
+  });
   myspoti.on('auth', finishVerification);
   // COLIBRI277: independent compressed-audio streaming mode; HQ resolver untouched.
   function colibriResolve(track) {
