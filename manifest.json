@@ -132,6 +132,12 @@
       "description": "Mostra fonti e account configurati, senza credenziali."
     },
     {
+      "key": "qobuzPoolHealth",
+      "type": "button",
+      "label": "QOBUZ · Salute del pool",
+      "description": "Conta token e cooldown, cache remota; nessuna verifica di rete o credenziale esposta."
+    },
+    {
       "key": "devLogs",
       "type": "toggle",
       "label": "DIAGNOSTICA · Log Dev",
