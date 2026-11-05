@@ -1,40 +1,33 @@
-# Aura Eclipse TWC 1.3.5 — Release (Build 317)
+# Aura Eclipse · Nuvola 4.5.0 — Build 384
 
-Estensione audio per MySpoti, con tre motori di ricerca e fallback. **Autore: kekkox88.**
+Estensione audio indipendente per [MySpoti](https://github.com/kota-zo/myspoti). **Autore e manutentore: kekkox88.** ID stabile: `aura.eclipse.tigro`.
 
-**Ringraziamenti:** Mauro aka **solidsnakeater**, Lello aka **PUNITOR_211080** e **TheWinner02** (progetto Echo). Il codice Aura Eclipse attribuisce il pool Qobuz condiviso a `echo-qobuz-extension` 1.0.1; la corrispondenza con i file pubblici di quella versione non è stata verificata indipendentemente.
+> **Nota di distribuzione:** questa pagina documenta la Build 384 FINAL. La Release GitHub con l'allegato `extension.zip` deve ancora essere pubblicata. I file sorgente presenti sul branch `main` possono appartenere a una versione precedente: non usare il branch come pacchetto di installazione.
 
-## Guida rapida
+## Nuvola e i tre motori
 
-- 🐯 **Tigro · HQ Fast:** ricerca veloce di FLAC e Hi-Res; motore predefinito.
-- 🐳 **Whale · Rare Rescue:** ricerca estesa per brani rari, edit e remix; HQ prima, poi fallback MP3/AAC.
-- 🐦 **Colibrì · Eco Stream:** privilegia MP3/AAC per ridurre il consumo dati.
+- ☁️ **Nuvola** coordina ricerche, cache e risultati condivisi; non è un quarto motore.
+- 🐯 **Tigro · HQ Fast** ricerca rapidamente FLAC e Hi-Res.
+- 🐳 **Whale · Rare Rescue / Guardian** integra Tigro: prova HQ e poi MP3/AAC per brani rari, edit e remix.
+- 🐦 **Colibrì · Eco Stream** privilegia audio compresso e risparmio dati. Disattivalo per utilizzare Tigro + Whale in cascata HQ → lossy.
 
-**Priorità dei toggle quando più motori sono attivi:** Colibrì > Whale > Tigro. Per usare Tigro, disattiva Colibrì e Whale; per Whale, disattiva Colibrì.
+Quando le fonti non restituiscono audio, MySpoti può utilizzare il proprio fallback Spotify. La cache del player può conservare temporaneamente la sorgente o il codec di un brano già riprodotto: per confronti attendibili usare brani nuovi o svuotare la cache.
 
-## Account e Vault
+## Account, sessioni e diagnostica
 
-Apri il menu dell'estensione in MySpoti e scegli **«Apri la sua pagina»** per raggiungere il Vault. Configura gli account Qobuz personali e i manifest Deezer nelle **Impostazioni**. Non pubblicare token, password, ARL o URL manifest personali. Il Vault non rende segreti i valori già incorporati nel codice distribuibile.
+La sezione Vault gestisce tre slot Qobuz personali e tre slot Deezer ARL. Le sessioni Aura possono essere verificate automaticamente all'avvio; sono disponibili verifica manuale, manutenzione cache e azzeramento delle attese Qobuz. I Log Dev avanzati sono opzionali e disattivati per impostazione predefinita. Non condividere log contenenti credenziali.
 
-Per Deezer Eclipse, inserisci nel campo **Manifest URL** il tuo link HTTPS personale ottenuto dal servizio previsto dal provider; non inserire il cookie ARL direttamente nel campo.
+## Installazione e aggiornamenti
 
-## Diagnostica e manutenzione
+Installare il pacchetto `extension.zip` allegato alla [Release ufficiale](https://github.com/kekkox88/Aura-Eclipse-Extension/releases) quando disponibile. Non confondere il file ZIP dell'estensione con il codice sorgente del branch. L'ID resta invariato e il numero di build MySpoti per questa versione è **384**.
 
-- **Log Dev:** attivalo solo per diagnosi; un codec dichiarato dall'API non equivale a un controllo dei byte audio.
-- **Svuota cache:** elimina cache e sospensioni, non gli account.
-- **Qobuz · Azzera attese:** rimuove i cooldown temporanei Qobuz senza cancellare gli account.
-- **Sessioni Aura:** verifica o reimposta le sessioni senza rimuovere i campi degli account personali.
+## Crediti
 
-## Note di rilascio
+- **Aura Eclipse:** kekkox88 — sviluppo e manutenzione delle contribuzioni originali.
+- **MySpoti:** [kota-zo/myspoti](https://github.com/kota-zo/myspoti) — piattaforma ospitante indipendente.
+- **Ringraziamenti:** Mauro aka @solidsnakeater, Lello aka @PUNITOR_211080 (beta testing), TheWinner02 (progetto Echo).
+- **Riferimento tecnico:** [Mornye](https://github.com/mornyeapp/Mornye) e [Mornye-Extension](https://github.com/mornyeapp/Mornye-Extension). Il riferimento non implica affiliazione né prova di riutilizzo di codice.
 
-**1.3.5 TWC (Build 317):** Deezer usa qualità automatica e Whale può riutilizzare il primo MP3 valido senza una seconda richiesta; descrizioni, Welcome (5 passaggi), organizzazione delle impostazioni e documentazione aggiornati. I resolver audio non sono stati modificati rispetto alla Build 317 collaudata.
+## Licenza e responsabilità
 
-**ID interno:** `aura.eclipse.tigro`, conservato per compatibilità con le impostazioni esistenti. Versione `1.3.5`, `versionCode` 315.
-
-## Installazione e distribuzione
-
-Il pacchetto `extension.zip` contiene direttamente `manifest.json`, `main.js`, `icon.png`, `README.md` e `LICENSE` alla radice. Conserva una copia della configurazione prima di aggiornare. Per la pubblicazione su GitHub, prepara la release `v1.3.5` e allega il file con nome `extension.zip`; aggiungi il topic `myspoti-extension` al repository se vuoi renderlo individuabile dal catalogo MySpoti. La pubblicazione e l'accettazione nello Store non sono garantite dal solo superamento dei test statici.
-
-## Licenza e attribuzioni
-
-Consulta `LICENSE` per i termini applicabili al codice incluso. La disponibilità pubblica dei resolver o dei token non dimostra, da sola, un'autorizzazione a redistribuire le credenziali: verificare gli accordi con i rispettivi autori prima della diffusione.
+Le contribuzioni originali di kekkox88 sono proposte con licenza MIT; eventuale codice di terzi mantiene i propri diritti e obblighi. Consultare [LICENSE](LICENSE). Le licenze del progetto ospitante MySpoti e di Mornye non vengono automaticamente trasferite a questa estensione. Prima della distribuzione pubblica devono essere verificati provenienza del codice e diritti di redistribuzione di eventuali credenziali incorporate.
