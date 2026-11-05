@@ -1,4 +1,147 @@
 
+/* BUILD319 EXPERIMENTAL RELAYS — opt-in, isolated from original engines. */
+/* NUVOLA 1.5.0 BUILD346: DASH-only experimental relays; retired file-based relay adapters removed. */
+var AURA_RELAY_319 = (function () {
+  var tigroMatch=null;
+  var sources = [
+    {key:'eljohnzc',base:'https://eljohnzc-addon.de.deplexo.com/59efe06a96',kind:'dash',qualities:['hires','lossless']},
+    {key:'aurix',base:'https://addon-2.aurix.dpdns.org/free_rLnRPnC6oZF5gvAx',kind:'dash',qualities:['hi_res','lossless']}
+  ];
+  var bad = {};
+  var relayFailures = {}; // DUAL342: per-source 503 streak; no cross-source cooldown
+  function norm(s) { return String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[^a-z0-9]+/g,' ').trim(); }
+  function read(url,ms,log,phase,source) {
+    var started=Date.now(), r=null;
+    try {
+      r=myspoti.http.get(url,{timeout:ms});
+      var status=r&&Number(r.status||r.statusCode||0)||0;
+      if(!r||!r.ok){
+        if((source==='eljohnzc'||source==='aurix')&&phase==='search'&&status===503){
+          relayFailures[source]=(relayFailures[source]||0)+1;
+          if(log)log('[DIAG343] '+source+' search-503 streak='+relayFailures[source]+' retry-after='+String((r.headers&&(r.headers['retry-after']||r.headers['Retry-After']))||'not-provided').slice(0,25));
+          if(relayFailures[source]>=2){bad[source]=Date.now()+20000;if(log)log('[DUAL342] '+source+' 503-circuit-open 20s');}
+        }
+        if(log)log('[RELAY335] '+source+' '+phase+' HTTP='+(status||'0')+' esito='+(r?'non-ok':'risposta-assente')+' ms='+(Date.now()-started));return null;}
+      var v=typeof r.json==='function'?r.json():r.body;
+      if(typeof v==='string'){
+        if(!v.trim()){if(log)log('[RELAY335] '+source+' '+phase+' body-vuoto HTTP='+status);return null;}
+        try{v=JSON.parse(v);}catch(parseError){if(log)log('[RELAY335] '+source+' '+phase+' JSON-non-valido HTTP='+status);return null;}
+      }
+      if(!v||typeof v!=='object'){if(log)log('[RELAY335] '+source+' '+phase+' payload-non-oggetto HTTP='+status);return null;}
+      if(phase==='search'&&(source==='eljohnzc'||source==='aurix'))relayFailures[source]=0;
+      if(log)log('[RELAY335] '+source+' '+phase+' HTTP='+(status||'ok')+' ms='+(Date.now()-started));
+      return v;
+    }catch(e){if(log)log('[RELAY335] '+source+' '+phase+' eccezione='+String(e&&e.name||'errore').slice(0,35)+' ms='+(Date.now()-started));return null;}
+  }
+  function textGet(url,ms) {try {var r=myspoti.http.get(url,{timeout:ms});return r&&r.ok?String(r.body||''):'';}catch(e){return '';} }
+  function urlOk(url) { return /^https:\/\/[a-z0-9.-]+(?:\/|$)/i.test(String(url||'')); }
+  function hostAllowed(url) { var m=/^https:\/\/([^/:?#]+)/i.exec(url||''); if(!m)return false; var h=m[1].toLowerCase(); return h!=='localhost'&&!/^(?:127\.|10\.|192\.168\.|169\.254\.|0\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(h)&&h.indexOf('..')<0; }
+  function candidates(b) {var d=b&&b.data||b||{};var t=d.tracks||d.items||[];if(t&&t.items)t=t.items;return Array.isArray(t)?t:[];}
+  function artist(t) {var a=t.artist||t.performer||t.artistNames||'';return typeof a==='string'?a:Array.isArray(a)?a.join(', '):a&&a.name||'';}
+  function choose(items,track) {var want=norm(track.title),a=norm(track.artist),isrc=String(track.isrc||'').toLowerCase();for(var i=0;i<items.length;i++){var t=items[i];if(!t||!t.id)continue;var title=norm(t.title),who=norm(artist(t));var sameIsrc=isrc&&String(t.isrc||'').toLowerCase()===isrc;if(!sameIsrc&&(title!==want||!a||who!==a))continue;var dur=Number(t.duration||0),wanted=Number(track.durationMs||0)/1000;if(dur>5400)dur/=1000;if(!sameIsrc&&dur&&wanted&&Math.abs(dur-wanted)>6)continue;return t;}return null;}
+  function manifestOk(xml){return /<MPD[\s\/>]/i.test(xml)&&/<SegmentTemplate[\s\/>]/i.test(xml)&&/<SegmentTimeline[\s\/>]/i.test(xml)&&!/ContentProtection/i.test(xml);}
+  function resolve(track,deadline,enabled,log) {
+    if(!track||!track.title||!track.artist){
+      log('[RELAY332] metadata insufficienti: title='+Boolean(track&&track.title)+' artist='+Boolean(track&&track.artist));
+      return null;
+    }
+    var selected=[]; // Public build: experimental relays disabled
+    if(!selected.length){log('[RELAY330] nessun relay sperimentale abilitato; controllare toggle');return null;}
+    log('[RELAY330] selezionati='+selected.map(function(s){return s.key;}).join(','));
+    if(selected.some(function(s){return s.key==='eljohnzc';})&&selected.some(function(s){return s.key==='aurix';}))log('[DUAL342] priorita=eljohnzc>aurix; matcher-condiviso; toggle-indipendenti');
+    for(var i=0;i<sources.length;i++){
+      var s=sources[i];
+      if(!enabled('relay319_'+s.key,false))continue;
+      var remaining=Number(bad[s.key]||0)-Date.now();
+      if(remaining>0){log('[DUAL342] '+s.key+' cooldown attivo '+Math.ceil(remaining/1000)+'s; prossimo relay');continue;}
+      if(deadline-Date.now()<2300){log('[RELAY332] '+s.key+' tempo insufficiente per ricerca');break;}
+      if(s.key==='aurix')log('[NUVOLA340] aurix isolabile; matcher=Tigro; retry-ricerca=OFF; fallback-match=solo-approvati');
+      log('[RELAY329] '+s.key+' ricerca');
+      var query=encodeURIComponent(track.title+' '+track.artist),path=s.kind==='dash'?'/search?q=':'/api/search?q=';
+      var result=read(s.base+path+query,Math.min(2300,deadline-Date.now()-700),log,'search',s.key);
+      var items=candidates(result);
+      var hit=null, ranked=[];
+      if(tigroMatch){
+        for(var ci=0;ci<Math.min(items.length,25);ci++){
+          var c=items[ci]||{};
+          var mapped={id:c.id,title:String(c.title||c.name||''),artist:artist(c),album:typeof c.album==='string'?c.album:(c.album&&c.album.title)||'',duration:c.duration,isrc:c.isrc||c.isrcCode||'',version:c.version||c.title_version||''};
+          var ev=tigroMatch&&tigroMatch.evaluate(mapped,track,0);
+          if(ev)ranked.push({hit:c,score:ev.score});
+          else if(ci<5)log('[RELAY333] '+s.key+' candidato '+(ci+1)+' rifiutato: titolo='+tigroMatch.titleScore(mapped,track)+' artista='+tigroMatch.artistScore(mapped,track)+' delta='+((tigroMatch.durationDelta(mapped,track)===Infinity)?'n/d':Math.round(tigroMatch.durationDelta(mapped,track)*10)/10)+'s ISRC='+((mapped.isrc&&track.isrc)?(String(mapped.isrc).toLowerCase()===String(track.isrc).toLowerCase()?'uguale':'diverso'):'n/d')+' edizione='+(!tigroMatch.incompatibleEdition(mapped,track)?'compatibile':'diversa'));
+        }
+        // BOOST338: deduplicate the same recording ID before stream fallback.
+        // Preserve the Tigro score and the original stable ordering on ties.
+        ranked.sort(function(a,b){return b.score-a.score;});
+        var seenIds={}, uniqueRanked=[];
+        for(var ri=0;ri<ranked.length;ri++){
+          var rid=String(ranked[ri].hit.id||'').replace(/^tidal:/,'');
+          if(!rid||seenIds[rid])continue;
+          seenIds[rid]=true;uniqueRanked.push(ranked[ri]);
+        }
+        if(uniqueRanked.length!==ranked.length)log('[BOOST338] '+s.key+' duplicati-ID-scartati='+(ranked.length-uniqueRanked.length));
+        ranked=uniqueRanked;
+        hit=ranked.length?ranked[0].hit:null;
+        log('[RELAY333] '+s.key+' candidati='+items.length+' accettati='+ranked.length+' matcher=Tigro'+(hit?' score='+ranked[0].score:''));
+      }else {log('[RELAY334] matcher Tigro non inizializzato: fallback matching conservativo');hit=choose(items,track);}
+      if(!result)log('[RELAY335] '+s.key+' ricerca non utilizzabile; dettagli nella diagnostica precedente');
+      if(s.key==='aurix')log('[NUVOLA340] aurix search='+(!result?'errore-o-risposta-invalida':!items.length?'zero-candidati':!hit?'nessun-match-sicuro':'match-valido')+' candidati='+items.length+' accettati='+ranked.length);
+      if(!hit){log('[RELAY319] '+s.key+' nessun match sicuro');continue;}
+      // BUILD336: retry only independently Tigro-approved candidates, never raw search results.
+      var streamCandidates=ranked.length?ranked.map(function(r){return r.hit;}):[hit];
+      var maxCandidates=Math.min(streamCandidates.length,3);
+      for(var candidateIndex=0;candidateIndex<maxCandidates;candidateIndex++){
+      if(deadline-Date.now()<1700)break;
+      var candidate=streamCandidates[candidateIndex];
+      var rawId=String(candidate.id);
+      var id=rawId.replace(/^tidal:/i,'');
+
+      for(var q=0;q<s.qualities.length;q++){
+        if(deadline-Date.now()<1700)break;
+        var quality=s.qualities[q];
+        // NUVOLA341: Aurix expects the prefixed Tidal ID first; Eljohnzc uses the numeric ID first.
+        // Retry the alternate representation only when the primary request has no usable stream URL.
+        var ids=s.key==='aurix'?['tidal:'+id,id]:[id,'tidal:'+id];
+        var reply=null, replyId='', dataProbe={};
+        for(var idTry=0;idTry<ids.length;idTry++){
+          if(deadline-Date.now()<1200)break;
+          var trialId=ids[idTry];
+          var path2='/stream/'+encodeURIComponent(trialId)+'?quality='+quality;
+          reply=read(s.base+path2,Math.min(2500,Math.max(500,deadline-Date.now()-600)),log,'stream-'+quality+(idTry?'-id-alt':''),s.key);
+          dataProbe=reply&&reply.data||reply||{};
+          var candidateUrl=String(dataProbe.url||dataProbe.streamUrl||dataProbe.downloadUrl||'');
+          if(s.kind==='dash'&&s.key==='aurix')log('[NUVOLA341] aurix id-mode='+(trialId.indexOf('tidal:')===0?'prefixed':'plain')+' response='+(!reply?'missing':candidateUrl?'url-present':'url-missing')+' fields='+Object.keys(dataProbe).filter(function(k){return /^(url|streamUrl|downloadUrl|manifest|mimeType|codec|error|message|status)$/i.test(k);}).join(','));
+          if(candidateUrl){replyId=trialId;break;}
+          // FAST347: Aurix returned valid JSON but no stream URL. This is not
+          // evidence that the alternate ID encoding will work: save budget
+          // for lossless and the next Tigro-approved candidate.
+          if(s.key==='aurix'&&reply){
+            log('[FAST347] aurix no-url quality='+quality+' skip-id-alt=true next-quality=true');
+            break;
+          }
+          // DIAG343: an exception/timeout is not evidence that another ID encoding helps.
+          // Save the remaining time for an approved alternate candidate or next source.
+          if(!reply){if(log)log('[DIAG343] '+s.key+' stream-no-response quality='+quality+' id-mode='+(trialId.indexOf('tidal:')===0?'prefixed':'plain')+' skip-id-alt=true');break;}
+        }
+        var data=reply&&reply.data||reply||{},url=String(data.url||data.streamUrl||data.downloadUrl||'');
+        if(!urlOk(url)||!hostAllowed(url)||data.encrypted===true){var reason=data.encrypted===true?'encrypted':!url?'url-missing':!urlOk(url)?'url-invalid':'host-rejected';log('[RELAY335] '+s.key+' stream rejected reason='+reason+' quality='+quality+' id-presente='+Boolean(id));continue;}
+        {
+          if(myspoti.features&&myspoti.features.indexOf('audio.manifest')<0){log('[RELAY319] '+s.key+' DASH non supportato');continue;}
+          var xml=textGet(url,Math.min(2500,Math.max(700,deadline-Date.now()-500)));
+          if(!manifestOk(xml)){log('[RELAY319] '+s.key+' MPD assente/non utilizzabile');continue;} if(!myspoti.util||typeof myspoti.util.base64Encode!=='function'){log('[RELAY319] '+s.key+' base64 non disponibile');continue;}
+          log('[RELAY319] '+s.key+' manifest DASH valido, FLAC dichiarato');
+          return {manifest:myspoti.util.base64Encode(xml),mimeType:'audio/mp4',codec:'flac',provider:'Tidal '+s.key,format:'dash-flac',bitDepth:Number(data.bitDepth)||0,sampleRate:Number(data.sampleRate)||0};
+        }
+      }
+      } // end candidate retry: only matching-approved alternatives
+      log('[DIAG343] '+s.key+' stream-budget-remaining='+Math.max(0,deadline-Date.now())+' candidates-approved='+ranked.length+' candidates-attempted='+candidateIndex);
+      log('[BOOST338] '+s.key+' stream-esauriti='+Math.min(maxCandidates,candidateIndex)+' match-validi='+ranked.length+' budget-ms='+Math.max(0,deadline-Date.now()));
+    }
+    return null;
+  }
+  return {resolve:resolve,sources:sources,manifestOk:manifestOk,choose:choose,hostAllowed:hostAllowed,setTigroMatcher:function(m){tigroMatch=m;}};
+})();
+
+
 // Tigro Vault account manager: persistent credential overrides, legacy settings fallback.
 var TIGRO_VAULT_KEYS = ["eclipseUrl","qobuzPersonalToken1","qobuzPersonalAppId1","qobuzPersonalAppSecret1","qobuzPersonalToken2","qobuzPersonalAppId2","qobuzPersonalAppSecret2","qobuzPersonalToken3","qobuzPersonalAppId3","qobuzPersonalAppSecret3","eclipseUrl2","eclipseUrl3"];
 function tigroVaultSetting(key){
@@ -431,6 +574,46 @@ var NETEASE_FAST = (function () {
   return {resolve:resolve,clearCache:clearMatchCache};
 })();
 
+/* CLOUD365: shared search-response memo, across TIGRO/WHALE/COLIBRI.
+   Cache ONLY anonymous, allowlisted catalogue search metadata; never stream,
+   token, auth, account, playback, fileUrl or signed endpoints. No failures cached. */
+var CLOUD365_SEARCH = (function () {
+  var entries = {}, order = [], stats = {hits:0,misses:0,stores:0,evictions:0};
+  function allowed(url,opts) {
+    if (opts && opts.headers && Object.keys(opts.headers).some(function(k){return /authorization|token|cookie|signature|session/i.test(k);})) return false;
+    var m = /^https:\/\/([^/?#]+)(\/[^?#]*)(?:\?([^#]*))?/i.exec(String(url||''));
+    if (!m || /(?:token|secret|signature|auth|key|password|expires|credential|fileurl)/i.test(m[3]||'')) return false;
+    var host=m[1].toLowerCase(), path=m[2].toLowerCase();
+    return ((host==='tidal.com' && /^\/v1\/(?:tracks|search\/tracks)$/.test(path)) ||
+      ((host==='www.qobuz.com'||host==='api.qobuz.com') && /\/track\/search$/.test(path)) ||
+      ((host==='music.163.com'||host==='music.163.com:443') && /search/.test(path)));
+  }
+  function get(url,opts) {
+    if (!allowed(url,opts)) return myspoti.http.get(url,opts);
+    var now=Date.now(), k=String(url), hit=entries[k];
+    if(hit && now-hit.at<45000){stats.hits++; AURA_DEV_WRITE('[CLOUD365] search-cache=hit saved_http=1');
+      return {ok:true,status:200,body:hit.body,json:function(){return JSON.parse(hit.body);}};
+    }
+    if(hit) delete entries[k];
+    stats.misses++;
+    var r=myspoti.http.get(url,opts);
+    if(r && r.ok && Number(r.status||200)===200){
+      try {var body=typeof r.body==='string'?r.body:JSON.stringify(r.json());
+        if(body && body.length<200000 && !/(?:\"(?:streamUrl|fileUrl|manifest|playbackUrl|signedUrl)\"\s*:)/i.test(body)) {
+          if(!entries[k])order.push(k);
+          entries[k]={at:now,body:body};stats.stores++;
+          while(order.length>80){var old=order.shift();if(entries[old]){delete entries[old];stats.evictions++;}}
+          AURA_DEV_WRITE('[CLOUD365] search-cache=store');
+          return {ok:true,status:200,body:body,json:function(){return JSON.parse(body);}};
+        }
+      }catch(ignore){}
+    }
+    return r;
+  }
+  function reset(){entries={};order=[];stats={hits:0,misses:0,stores:0,evictions:0};}
+  return {get:get,stats:stats,reset:reset};
+})();
+
 var LAST_QOBUZ_POOL = (function () {
 var personalOnly = false;
 /*
@@ -497,6 +680,11 @@ var SHARED_TOKENS = [
   { token: '7W1P_bimeouwcLTVKjV1UGr_MJp4psetcljd1awOU9QksKi9AmHKvf6MtIdvzP0HuLLENvmM2pJErjSuE_3N3g', appId: '312369995', appSecret: 'e79f8b9be485692b0e5f9dd895826368' },
   { token: 'O97vZDyvXmYhLPfbn07D8Y4SFN02DyRrYb3Pe3rQXWnw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g', appId: '312369995', appSecret: 'e79f8b9be485692b0e5f9dd895826368' }
 ];
+var ACCOUNT_TOKENS = [
+  { token: 'JGR6Sd2IYC86-O-jm24JQPZR4-heGMmXjNND6RBo9idJDIBecJZ687c9DQ6D5jAc7IugtidTjegE6hlqdFo_uQ',
+    appId: '312369995', appSecret: 'e79f8b9be485692b0e5f9dd895826368', label: 'Qobuz Studio (US)' }
+];
+
 var QOBUZ_APP = { appId: '798273057', appSecret: 'abb21364945c0583309667d13ca3d93a' };
 var PROBE_KEY = 'probe';
 var PROVIDERS_KEY = 'providers';
@@ -631,7 +819,7 @@ function retryAfterMs(r) {
 }
 function httpText(url, timeoutMs) {
   try {
-    var r = myspoti.http.get(url, { timeout: timeoutFor(timeoutMs) });
+    var r = CLOUD365_SEARCH.get(url, { timeout: timeoutFor(timeoutMs) });
     if (!r || !r.ok) {
       httpErr = r && Number(r.status) === 429 ? 'busy' : (r && Number(r.status) >= 500 ? 'down' : httpErr);
       if (httpErr === 'busy') retryHint = retryAfterMs(r);
@@ -650,7 +838,7 @@ function httpText(url, timeoutMs) {
 /** La risposta intera (anche 4xx), o null se la richiesta non parte. */
 function httpRaw(url, timeoutMs) {
   try {
-    var r = myspoti.http.get(url, { timeout: timeoutFor(timeoutMs) });
+    var r = CLOUD365_SEARCH.get(url, { timeout: timeoutFor(timeoutMs) });
     return r || null;
   } catch (e) {
     AURA_DEV_WRITE('http: ' + e);
@@ -1035,6 +1223,8 @@ function evaluate(rawCandidate, track, hiResBias) {
   return best;
 }
 
+AURA_RELAY_319.setTigroMatcher({evaluate:evaluate,titleScore:titleScore,artistScore:artistScore,durationDelta:durationDelta,incompatibleEdition:incompatibleEdition});
+
 /* Protezione conservativa contro edizioni chiaramente diverse.
  * Non considera remaster/deluxe come registrazioni diverse e non altera
  * la corrispondenza se l'ISRC e' identico. */
@@ -1305,16 +1495,20 @@ function tokenPool() {
   var dead = myspoti.storage.get('qobuz_dead') || {};
   var out = [];
   var seen = {};
+  var knownApps = myspoti.storage.get('qobuz_user_app') || {};
 
   function add(entry, source) {
-    if (!entry || !entry.token || seen[entry.token]) return;
-    seen[entry.token] = true;
+    if (!entry || !entry.token) return;
+    var identity = entry.token + '|' + String(entry.appId || QOBUZ_APP.appId) + '|' + String(entry.appSecret || QOBUZ_APP.appSecret);
+    if (seen[identity]) return;
+    seen[identity] = true;
     var at = dead[entry.token] || 0;
     out.push({
       token: entry.token,
       appId: String(entry.appId || QOBUZ_APP.appId),
       appSecret: String(entry.appSecret || QOBUZ_APP.appSecret),
       source: source,
+      sample: !!entry.sample,
       deadUntil: at && (now() - at) < TOKEN_DEAD_MS ? at + TOKEN_DEAD_MS : 0
     });
   }
@@ -1322,13 +1516,18 @@ function tokenPool() {
   // I token personali vengono prima del pool condiviso. Senza app_id/app_secret
   // si usa l'app dei token pubblici (798273057).
   var mine = userTokens();
-  for (var u = 0; u < mine.length; u++) add(mine[u], 'user');
+  for (var u = 0; u < mine.length; u++) {
+    // User-provided app credentials always take precedence; learned preference
+    // is used only for ordering, not to replace a user's explicit secret.
+    add(mine[u], 'user');
+  }
+  for (var a = 0; a < ACCOUNT_TOKENS.length; a++) add(ACCOUNT_TOKENS[a], 'account');
 
   var saved = storedPool();
   if (saved) {
     for (var i = 0; i < saved.list.length; i++) add(saved.list[i], 'pool');
   }
-  for (var j = 0; j < SHARED_TOKENS.length; j++) add(SHARED_TOKENS[j], 'shared');
+  for (var j = 0; j < SHARED_TOKENS.length; j++) add({token:SHARED_TOKENS[j].token,appId:SHARED_TOKENS[j].appId,appSecret:SHARED_TOKENS[j].appSecret,sample:true}, 'shared');
   return out;
 }
 
@@ -1356,6 +1555,7 @@ function markTokenDead(token) {
 function refreshPool(force) {
   var url = trim(String(setting('poolUrl', '') || ''));
   if (!url) return false;
+  if (!/^https:\/\//i.test(url)) { AURA_DEV_WRITE('pool: URL non HTTPS, ignorato'); return false; }
   var saved = storedPool();
   if (!force && saved) return true;
   if (leftMs() < 2500) return false;
@@ -1540,6 +1740,7 @@ function qobuzCall(path, params, opts) {
   var last = null;
   for (var i = 0; i < order.length && tries < MAX_TOKEN_TRIES; i++) {
     var entry = order[i];
+    if (path === 'track/getFileUrl' && entry.sample) { tigroPoolEvent(path, entry, i + 1, 'PREVIEW_ONLY_SKIP'); continue; }
     if (entry.deadUntil && entry.deadUntil > now()) {
       tigroPoolEvent(path, entry, i + 1, 'ESCLUSO_TOKEN');
       continue;
@@ -1572,10 +1773,14 @@ function qobuzCall(path, params, opts) {
     }
 
     if (res.status === 401 || res.status === 403) {
-      tigroPoolEvent(path, entry, i + 1, 'TOKEN_RIFIUTATO', res.status);
+      // A signature/app mismatch can cause 401 even for a valid account.
+      // Only cooldown on an explicit token invalidation message.
+      var rejection = String(res.body || '').toLowerCase();
+      var confirmedInvalid = /invalid.user.auth.token|invalid_auth_token|expired.user.auth.token/.test(rejection);
+      tigroPoolEvent(path, entry, i + 1, confirmedInvalid ? 'TOKEN_RIFIUTATO' : 'APP_O_ACCESSO_RIFIUTATO', res.status);
       tigroQobuzDiag(path, entry, i + 1, res, null, true);
-      markTokenDead(entry.token);
-      AURA_DEV_WRITE('qobuz: token ' + entry.source + ' rifiutato (' + res.status + ')');
+      if (confirmedInvalid) markTokenDead(entry.token);
+      AURA_DEV_WRITE('qobuz: accesso ' + entry.source + ' rifiutato (' + res.status + ', tokenInvalid=' + confirmedInvalid + ')');
       continue;
     }
     var body = null;
@@ -1614,6 +1819,13 @@ function qobuzCall(path, params, opts) {
         continue;
       }
       tigroPoolEvent(path, entry, i + 1, 'RISPOSTA_ACCETTATA', res.status);
+      if (path === 'track/getFileUrl' && entry.source === 'user' && body && body.url) {
+        try {
+          var prefs = myspoti.storage.get('qobuz_user_app') || {};
+          prefs[entry.token] = entry.appId;
+          myspoti.storage.set('qobuz_user_app', prefs);
+        } catch (ignored) {}
+      }
       if (path === 'track/getFileUrl') tigroQobuzDiag(path, entry, i + 1, res, body, false);
       // Ricorda quale token funziona: la prossima chiamata riparte da lì.
       try {
@@ -1730,7 +1942,11 @@ function qobuzAnswer(trackId, wantHiRes) {
 function findCandidates(track, backup) {
   var key = matchKey(track) + (backup ? '#bc' : (personalOnly ? '#personal' : ''));
   var cached = readCache(key);
-  if (cached) return cached;
+  if (cached) {
+    AURA_DEV_WRITE('[TIGRO360] Eclipse match-cache=hit');
+    return cached;
+  }
+  AURA_DEV_WRITE('[TIGRO360] Eclipse match-cache=miss');
 
   var queries = queriesFor(track, backup);
   var maxQ = backup ? 2 : MAX_QUERIES;
@@ -1749,14 +1965,24 @@ function findCandidates(track, backup) {
     }
     // Abbinamento netto: inutile insistere, ma solo se arriva da una fonte che
     // ha già dimostrato di servire audio. Un "Deezer perfetto" non serve a nulla.
-    var good = 0;
+    // TIGRO360 smart merge: an exact ISRC needs no additional search.
+    // Otherwise use the already captured health snapshot and the highest
+    // score seen so far, rather than assuming the first insertion is best.
+    var good = false, byIsrc = false, bestScore = -Infinity;
     for (var g = 0; g < all.length; g++) {
-      var known = providerSnapshot[providerOf(all[g].item.id)];
-      if (known && known.ok) { good++; break; }
+      var candidate = all[g];
+      if (candidate.isrcMatched) byIsrc = true;
+      if (candidate.score > bestScore) bestScore = candidate.score;
+      if (!good) {
+        var known = providerSnapshot[providerOf(candidate.item.id)];
+        if (known && known.ok) good = true;
+      }
+      if (byIsrc) break;
     }
-    var byIsrc = false;
-    for (var q = 0; q < all.length; q++) if (all[q].isrcMatched) { byIsrc = true; break; }
-    if (byIsrc || (all.length && all[0].score >= 90 && good)) break;
+    if (byIsrc || (bestScore >= 90 && good)) {
+      AURA_DEV_WRITE('[TIGRO360] Eclipse early-stop='+ (byIsrc?'isrc':'trusted-score')+' queries='+ (i+1));
+      break;
+    }
   }
   if (!all.length) return null;
 
@@ -2549,6 +2775,20 @@ function runSource(src, track) {
 
 
 return {
+  health:function() {
+    var all=tokenPool(), counts={user:0,pool:0,shared:0}, blocked={user:0,pool:0,shared:0};
+    for(var i=0;i<all.length;i++) {
+      var group=all[i].source;
+      if(!Object.prototype.hasOwnProperty.call(counts,group)) continue;
+      counts[group]++;
+      if(all[i].deadUntil && all[i].deadUntil>now()) blocked[group]++;
+    }
+    var cached=myspoti.storage.get(TOKENS_KEY);
+    var remoteConfigured=!!trim(String(setting('poolUrl','')||''));
+    var remoteAge=cached && cached.at ? Math.max(0,now()-cached.at) : null;
+    return {counts:counts,blocked:blocked,remoteConfigured:remoteConfigured,
+      remoteCached:!!storedPool(),remoteAgeMinutes:remoteAge===null?null:Math.floor(remoteAge/60000)};
+  },
   resolvePersonal:function(track, download){
     if (!userTokens().length) return null;
     var previous = personalOnly;
@@ -2608,7 +2848,32 @@ return {
 
   function text(v) { return v == null ? '' : String(v).trim(); }
   function log(message) { try { AURA_DEV_WRITE('[FLAC Bridge] ' + message); } catch (ignored) {} }
+  // SOURCE352: one-source laboratory mode; independent of legacy automatic toggles.
+  var SOURCE352_KEYS = ['sourceQobuzPersonal','sourceQobuzLast','sourceQobuzAura','sourceTidalAura','sourceDeezer','sourceNetEase','sourceJioSaavn','relay319_aurix','relay319_eljohnzc'];
+  function source352Active() { return false; }
+  function source352Selected() {
+    var picked=[];
+    for(var i=0;i<SOURCE352_KEYS.length;i++){
+      var v=tigroVaultSetting('source352_'+SOURCE352_KEYS[i]);
+      if(v===true||String(v)==='true')picked.push(SOURCE352_KEYS[i]);
+    }
+    return picked.length===1?picked[0]:null;
+  }
+  function source352Allowed(key){return !source352Active() || source352Selected()===key;}
   function toggle(key, fallback) {
+    if(source352Active()) {
+      if(key==='nuvolaIsolate320')return false;
+      if(SOURCE352_KEYS.indexOf(key)>=0)return source352Allowed(key);
+      if(key==='colibriEco'||key==='splashWhale')return false;
+    }
+    // NUVOLA320: isolate all established sources without changing their settings.
+    if (key === 'nuvolaIsolate320') {
+      var nv; try { nv=tigroVaultSetting(key); } catch (_) {}
+      return nv === true || String(nv) === 'true';
+    }
+    if (toggle('nuvolaIsolate320', false) &&
+        /^(sourceQobuzLast|sourceQobuzAura|sourceTidalAura|sourceNetEase|sourceJioSaavn|sourceQobuzPersonal|sourceDeezer)$/.test(key))
+      return false;
     // ZOO289: automatic sources; legacy saved OFF toggles cannot silently disable them.
     if (key === 'sourceQobuzLast' || key === 'sourceQobuzAura' ||
         key === 'sourceTidalAura' || key === 'sourceNetEase' ||
@@ -2667,7 +2932,10 @@ return {
     };
     if (!validSession(s)) return false;
     myspoti.storage.set(p.storage, s);
-    return true;
+    var persisted = myspoti.storage.get(p.storage);
+    var ok = validSession(persisted) && persisted.id === s.id && persisted.secret === s.secret && persisted.installId === s.installId;
+    log('[SHIELD351] '+p.name+' session-write='+ (ok?'persisted':'readback-failed')+' expiry='+ (s.expiresAt?'present':'absent'));
+    return ok;
   }
 
   function pendingValid() {
@@ -2685,11 +2953,13 @@ return {
     var state = myspoti.util.sha256(serverNonce + ':' + install + ':' + Math.random() + ':' + Date.now());
     var callback = CALLBACK + '?cb_version=v2grant&state=' + encodeURIComponent(state);
     var url = GATE + '/challenge?' + myspoti.query({ id: challenge, cb: callback });
+    log('[SHIELD351] '+p.name+' challenge-opening');
     var authId = myspoti.auth.open({ url: url, callback: CALLBACK });
     var ttl = Number(result && result.expires_in);
     if (!isFinite(ttl) || ttl <= 0) ttl = 300;
     ttl = Math.min(300, Math.max(1, ttl));
     myspoti.storage.set(PENDING_KEY, { id: text(authId), provider: p.key, state: state, installId: install, until: Date.now() + ttl * 1000 });
+    log('[SHIELD351] '+p.name+' challenge-opened');
     log(p.name + ': pagina di verifica aperta.');
     return true;
   }
@@ -2724,6 +2994,8 @@ return {
       }
       var result = r.json();
       if (saveSession(p, result, install, null)) {
+        setReverify(p, false, 'bootstrap-granted');
+        log('[SHIELD351] '+p.name+' bootstrap-session-granted');
         myspoti.storage.remove(PENDING_KEY);
         log(p.name + ': sessione verificata.');
         notify(p.name + ' attivato.');
@@ -2740,26 +3012,54 @@ return {
       return 'error';
     }
   }
-  // Una sessione scaduta: si prova il normale avvio senza interfaccia. Se il server la concede
-  // da solo, si riparte; se chiede la verifica, la pagina si apre (se attivo) e la completi tu.
+  // Recupero silenzioso: bootstrap senza UI. Se serve una challenge, la coda resta disponibile
+  // per la prossima pausa o per il pulsante Verifica ora.
   function recover(p, deadline) {
     var t = Date.now();
-    if (lastSilent[p.key] && t - lastSilent[p.key] < SILENT_GAP) return false;
+    if (lastSilent[p.key] && t - lastSilent[p.key] < SILENT_GAP) { log('[SHIELD349] '+p.name+' cooldown=active'); return false; }
     lastSilent[p.key] = t;
     try {
       var install = id();
       var r = myspoti.http.get(GATE + '/bootstrap?' + myspoti.query({ app_version: p.app, install_id: install }),
         { headers: { Accept: 'application/json' }, timeout: remaining(deadline, 2500) });
-      if (r && Number(r.status) === 429) { lastRetry = retryAfterMs(r); noteOutcome(p, 'busy'); return false; }
-      if (!r || !r.ok) return false;
+      if (r && Number(r.status) === 429) { lastRetry = retryAfterMs(r); noteOutcome(p, 'busy'); log('[SHIELD349] '+p.name+' bootstrap=429'); return false; }
+      if (!r || !r.ok) { log('[SHIELD349] '+p.name+' bootstrap=http-'+(r ? r.status : 0)); return false; }
       var result = r.json();
-      if (saveSession(p, result, install, null)) { log(p.name + ': sessione ripristinata senza nuova verifica.'); return true; }
-      if (toggle('autoVerify', true) && t - lastAuto > AUTO_VERIFY_GAP && !pendingValid()) {
-        lastAuto = t;
-        if (openChallenge(p, result, install)) notify(p.name + ': completa la verifica nella pagina appena aperta.');
+      if (saveSession(p, result, install, null)) { setReverify(p, false, 'silent-bootstrap-granted'); log('[SHIELD349] '+p.name+' bootstrap=granted'); log(p.name + ': sessione ripristinata senza nuova verifica.'); return true; }
+      log('[SHIELD349] '+p.name+' bootstrap=challenge-required');
+      // SILENT GUARD 318: defer interactive verification discovered in audio resolver.
+      if (toggle('autoVerify', true)) {
+        var queued = myspoti.storage.get(QUEUE_KEY);
+        queued = Array.isArray(queued) ? queued.slice() : [];
+        if (queued.indexOf(p.key) < 0) queued.push(p.key);
+        myspoti.storage.set(QUEUE_KEY, queued);
+        log(p.name + ': verifica interattiva in coda fino alla prossima pausa.');
       }
-    } catch (ignored) {}
+    } catch (ignored) { log('[SHIELD349] '+p.name+' bootstrap=exception'); }
     return false;
+  }
+  // SHIELD353: server rejection overrides locally persisted session validity.
+  var REVERIFY_KEY = 'shield353_reverify_required';
+  function reverifyMap() {
+    var v = myspoti.storage.get(REVERIFY_KEY);
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  }
+  function requiresReverify(p) { return !!reverifyMap()[p.key]; }
+  function setReverify(p, required, reason) {
+    var v = reverifyMap();
+    if (required) v[p.key] = true;
+    else delete v[p.key];
+    myspoti.storage.set(REVERIFY_KEY, v);
+    log('[SHIELD353] '+p.name+' reverify='+(required?'required':'cleared')+' reason='+reason);
+  }
+  function queueReverify(p, reason) {
+    setReverify(p, true, reason);
+    var q = myspoti.storage.get(QUEUE_KEY);
+    q = Array.isArray(q) ? q.slice() : [];
+    if (q.indexOf(p.key) < 0) q.push(p.key);
+    myspoti.storage.set(QUEUE_KEY, q);
+    log('[SHIELD355] '+p.name+' queued; silent-first; manual Verify or next pause for challenge');
+    log('[SHIELD353] '+p.name+' queued; next-safe-pause');
   }
   function clearQueue() { myspoti.storage.remove(QUEUE_KEY); myspoti.storage.remove('verification_force'); }
   function nextInQueue() {
@@ -2767,9 +3067,18 @@ return {
     q = Array.isArray(q) ? q.slice() : [];
     while (q.length) {
       var p = provider(q.shift());
-      if (!p || (!force && validSession(myspoti.storage.get(p.storage)))) continue;
+      if (!p) continue;
+      if (!force && !requiresReverify(p) && validSession(myspoti.storage.get(p.storage))) { log('[SHIELD351] '+p.name+' queue-skip=valid-local'); continue; }
+      if (requiresReverify(p)) log('[SHIELD353] '+p.name+' queue-priority=server-rejected');
       myspoti.storage.set(QUEUE_KEY, q);
-      if (beginVerification(p) === 'challenge') return; // si prosegue al ritorno dalla pagina
+      var outcome = beginVerification(p);
+      if (outcome === 'challenge') return; // si prosegue al ritorno dalla pagina
+      if (outcome === 'error') {
+        q.unshift(p.key);
+        myspoti.storage.set(QUEUE_KEY, q);
+        log('[SHIELD353] '+p.name+' queue-retained=verification-not-started');
+        return;
+      }
     }
     clearQueue();
   }
@@ -2810,31 +3119,34 @@ return {
   }
   // Prova subito la verifica per le fonti senza sessione o in scadenza, saltando le attese memorizzate.
   // Il server può rispondere ancora 429: in quel caso il Registro lo dice.
-  function forceVerify() {
-    var t = Date.now(), hm = healthMap(), q = [];
-    providers.forEach(function (p) {
-      var s = myspoti.storage.get(p.storage), e = validSession(s) && s.expiresAt ? Date.parse(s.expiresAt) : NaN;
-      var needs = !validSession(s) || (isFinite(e) && e - t < 10 * 60 * 1000);
-      if (!needs) return;
-      if (hm[p.key] && hm[p.key].kind === 'busy') { delete hm[p.key]; }
-      delete lastSilent[p.key];
+  // SHIELD354: shared verification planner for existing UI buttons.
+  function verifyAll(mode) {
+    var force = mode === 'force', now = Date.now(), hm = healthMap(), q = [];
+    providers.forEach(function(p) {
+      if (!toggle(p.key === 'qobuz' ? 'sourceQobuzAura' : 'sourceTidalAura', false)) return;
+      var sess = myspoti.storage.get(p.storage);
+      var exp = validSession(sess) && sess.expiresAt ? Date.parse(sess.expiresAt) : NaN;
+      if (!(force || requiresReverify(p) || !validSession(sess))) return;
+      if (force) {
+        if (hm[p.key] && hm[p.key].kind === 'busy') delete hm[p.key];
+        delete lastSilent[p.key];
+      }
       q.push(p.key);
     });
-    try { myspoti.storage.set(HEALTH_KEY, hm); } catch (ignored) {}
-    lastAuto = 0;
-    if (!q.length) { notify('Nessuna fonte da verificare: le sessioni sono valide.'); return; }
-    log('Verifica forzata per: ' + q.join(', ') + '.');
-    myspoti.storage.set(QUEUE_KEY, q);
-    myspoti.storage.set('verification_force', true);
+    if (force) { try { myspoti.storage.set(HEALTH_KEY,hm); } catch(ignored) {} lastAuto=0; }
+    var old=myspoti.storage.get(QUEUE_KEY);
+    if (Array.isArray(old)) old.forEach(function(key) {
+      var p=provider(key);
+      if (p && toggle(p.key === 'qobuz' ? 'sourceQobuzAura' : 'sourceTidalAura',false) && q.indexOf(key)<0) q.push(key);
+    });
+    if (!q.length) { log('[SHIELD354] verify-all skip=none-needed-or-disabled'); notify('Nessuna sessione Aura da verificare (oppure fonte disabilitata).'); return; }
+    log('[SHIELD354] verify-all mode='+(force?'force':'normal')+' queued='+q.join(','));
+    myspoti.storage.set(QUEUE_KEY,q);
+    myspoti.storage.set('verification_force',force);
+    log('[SHIELD355] verify-entry=user-action');
     nextInQueue();
   }
-  function verifyAll() {
-    var q = [];
-    providers.forEach(function (p) { if (toggle(p.key === 'qobuz' ? 'sourceQobuzAura' : 'sourceTidalAura', false) && !validSession(myspoti.storage.get(p.storage))) q.push(p.key); });
-    if (!q.length) { notify('Tutte le fonti sono già attive.'); return; }
-    myspoti.storage.set(QUEUE_KEY, q);
-    nextInQueue();
-  }
+  function forceVerify() { verifyAll('force'); }
   function queryValues(url, depth) {
     if (depth > 2 || !url) return {};
     var raw = String(url), first = raw.indexOf('?');
@@ -2859,28 +3171,34 @@ return {
   function finishVerificationCore(event) {
     try {
       var pending = myspoti.storage.get(PENDING_KEY);
-      if (!pending || text(event && event.id) !== text(pending.id)) return;
+      if (!pending || text(event && event.id) !== text(pending.id)) { log('[SHIELD351] callback ignored=no-matching-pending'); return; }
       myspoti.storage.remove(PENDING_KEY);
       var p = provider(text(pending.provider));
       if (!p) return;
       if (event.error) {
+        log('[SHIELD351] '+p.name+' callback=error');
         log(p.name + ': verifica chiusa o scaduta.');
         notify('Verifica ' + p.name + ' non completata.');
         return;
       }
+      log('[SHIELD351] '+p.name+' callback=received');
       var url = text(event.url);
       if (url.indexOf(CALLBACK + '?') !== 0 && url.indexOf(CALLBACK + '#') !== 0) throw new Error('INVALID_CALLBACK');
       if (Date.now() > Number(pending.until)) throw new Error('EXPIRED_CALLBACK');
       var vals = queryValues(url, 0), grant = text(vals.grant || vals.code);
       if (!grant || grant.length > 8192 || text(vals.state) !== text(pending.state)) throw new Error('INVALID_STATE');
       var body = JSON.stringify({ grant: grant, install_id: pending.installId, app_version: p.app, platform: 'extension' });
+      log('[SHIELD351] '+p.name+' exchange=requested');
       var r = myspoti.http.post(GATE + '/session/exchange', body,
         { headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, timeout: 6500 });
       if (!r || !r.ok || !saveSession(p, r.json(), pending.installId, null)) {
+        log('[SHIELD351] '+p.name+' exchange=failed http='+ (r ? r.status : 0));
         log(p.name + ': sessione non creata (HTTP ' + (r ? r.status : '0') + ').');
         notify('Sessione ' + p.name + ' non creata. Riprova la verifica.');
         return;
       }
+      setReverify(p, false, 'exchange-completed');
+      log('[SHIELD351] '+p.name+' exchange=completed session=persisted');
       log(p.name + ': sessione verificata.');
       notify(p.name + ' attivato.');
     } catch (ignored) {
@@ -2941,7 +3259,8 @@ return {
       var status = r ? Number(r.status) || 0 : 0, code = text(data.code).toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 50);
       log(p.name + ': server HTTP ' + status + (code ? ' (' + code + ')' : '') + '.');
       if (status === 428 || code === 'VERIFY_REQUIRED' || (status === 401 && code === 'SESSION_INVALID') || (status === 403 && code === 'REQUEST_AUTH_INVALID')) {
-        if (status === 401 && code === 'SESSION_INVALID') myspoti.storage.remove(p.storage);
+        queueReverify(p, 'http-'+status+(code?'-'+code:''));
+        if (status === 401 && code === 'SESSION_INVALID') { myspoti.storage.remove(p.storage); log('[SHIELD349] '+p.name+' session-invalid; sessione locale invalidata.'); }
         throw new Error('VERIFY_REQUIRED');
       }
       lastCode = code || ('HTTP' + status);
@@ -2952,6 +3271,7 @@ return {
   }
   function activeSession(p, deadline) {
     var s = myspoti.storage.get(p.storage);
+    if (requiresReverify(p)) { log('[SHIELD353] '+p.name+' local-session=blocked-server-rejected'); throw new Error('VERIFY_REQUIRED'); }
     if (!validSession(s)) return null;
     var expires = s.expiresAt ? Date.parse(s.expiresAt) : NaN;
     if (isFinite(expires) && expires - Date.now() <= 300000) {
@@ -3100,7 +3420,7 @@ return {
   }
   function requestJson(url, headers, deadline, timeout) {
     var r = netCall(deadline, function () {
-      return myspoti.http.get(url, { headers: headers || { Accept: 'application/json' }, timeout: remaining(deadline, timeout || 2600) });
+      return CLOUD365_SEARCH.get(url, { headers: headers || { Accept: 'application/json' }, timeout: remaining(deadline, timeout || 2600) });
     });
     if (!r || !r.ok) return null;
     try { return r.json(); } catch (ignored) { return null; }
@@ -3409,6 +3729,21 @@ return {
     }
     return false;
   }
+  // GUARDIAN379: only cache definitive HTTP 404 for Qobuz MP3, never timeouts,
+  // 401/403, 429, malformed replies or missing tokens. Memory only; expires after 5 min.
+  var whaleQobuzMp3NotFound = {};
+  function whaleQobuzMissKey(id) { return String(id || ''); }
+  function whaleQobuzIsNotFound(id) {
+    var key = whaleQobuzMissKey(id), expiry = whaleQobuzMp3NotFound[key] || 0;
+    if (expiry && expiry > Date.now()) return true;
+    if (expiry) delete whaleQobuzMp3NotFound[key];
+    return false;
+  }
+  function whaleQobuzMarkNotFound(id) {
+    var keys = Object.keys(whaleQobuzMp3NotFound);
+    if (keys.length >= 96) whaleQobuzMp3NotFound = {};
+    whaleQobuzMp3NotFound[whaleQobuzMissKey(id)] = Date.now() + 300000;
+  }
   // WHALE131: optional Qobuz MP3 (format_id=5), using the existing authorized pool.
   // Called only after HQ is exhausted; never alters the FLAC resolver or token pool.
   function qobuzWhaleMp3(track, deadline) {
@@ -3416,6 +3751,10 @@ return {
     try {
       var hit = qobuzHit(track, {key:'qobuz',name:'Qobuz Aura'}, null, deadline);
       if (!hit || !hit.id) { AURA_DEV_WRITE('[WHALE131] Qobuz: nessun match verificato'); return null; }
+      if (whaleQobuzIsNotFound(hit.id)) {
+        AURA_DEV_WRITE('[GUARDIAN379] Qobuz MP3: HTTP 404 precedente, richiesta evitata (TTL 5 min)');
+        return null;
+      }
       var ts = Math.floor(Date.now()/1000), fmt = 5;
       var res = qobuzCall('track/getFileUrl', {
         request_ts:ts, track_id:hit.id, format_id:fmt, intent:'stream'
@@ -3431,6 +3770,11 @@ return {
         ' url=' + (b && b.url ? 'presente' : 'assente') +
         ' sample=' + (b && b.sample === true ? 'si' : 'no') +
         ' format=' + (b && b.format_id != null ? String(b.format_id).slice(0,8) : '?'));
+      // Only a definitive not-found may be cached; never cache authorization or network failures.
+      if (Number(res.status) === 404) {
+        whaleQobuzMarkNotFound(hit.id);
+        AURA_DEV_WRITE('[GUARDIAN379] Qobuz MP3: HTTP 404, cache negativa temporanea');
+      }
       if (res.status !== 200 || !b || !b.url || b.sample === true || b.preview === true) {
         var errCode = b && (b.code || b.error_code || (b.error && b.error.code));
         if (errCode != null) AURA_DEV_WRITE('[EAGLE275] MP3: codice errore API=' + String(errCode).slice(0,32));
@@ -3456,6 +3800,7 @@ return {
     }
   }
   function resolve(track, budget, collectAll) {
+    var shield355Attempted = {};
     if (!track || typeof track !== 'object') return [];
     var deadline = Date.now() + budget, order = preferenceOrder(), any = false, needsVerification = false, results = [], recovered = {}, deferredNeteaseMp3 = null;
     // ZOO289: experimental Eagle MP3 override disabled; normal HQ/Whale chain retained.
@@ -3546,6 +3891,14 @@ return {
         if (code === 'VERIFY_REQUIRED') {
           log(p.name + ': serve una nuova verifica.');
           needsVerification = true;
+          // SHIELD349: silent bootstrap after 401, never retry audio in the same request.
+          if (deadline - Date.now() > 1800 && !pendingValid() && !shield355Attempted[p.key]) {
+            shield355Attempted[p.key] = true;
+            delete lastSilent[p.key]; // fresh server 428 supersedes earlier local cooldown
+            var restored = recover(p, Math.min(deadline, Date.now() + 2700));
+            log('[SHIELD355] '+p.name+' server-reject-silent-restored='+restored);
+            log('[SHIELD349] '+p.name+' trigger=401 restored='+restored+' retry-stream=OFF');
+          }
         } else if (code === 'TIME_BUDGET') {
           qlog(p.name + ': tempo della fonte esaurito (' + (Date.now() - started) + ' ms).');
           recordStat(p, false);
@@ -3563,6 +3916,12 @@ return {
           } else if (/timeout|timed out|failed to connect/i.test(code)) noteOutcome(p, 'timeout');
         }
       }
+    }
+    // Experimental HQ relays after stable Qobuz/Tidal, before Deezer and NetEase.
+    if (!results.length && deadline-Date.now()>2400) {
+      try { var experimental=AURA_RELAY_319.resolve(track,deadline,toggle,AURA_DEV_WRITE);
+        if(experimental){results.push(experimental);if(!collectAll)return results;}
+      } catch(relayError){AURA_DEV_WRITE('[RELAY319] errore isolato: '+String(relayError).slice(0,100));}
     }
     // UltraMAX manifest via original Last Eclipse resolver. No personal URL in code or logs.
     if (!results.length && toggle('sourceDeezer', false) && deadline-Date.now()>2000) {
@@ -3638,7 +3997,10 @@ return {
       // Only request Qobuz MP3 if no already-recovered NetEase MP3 is ready.
       var whaleQobuz = null;
       if (!whaleNeteaseReady && toggle('sourceQobuzLast', true)) {
+        var guardianQobuzStart = Date.now();
         whaleQobuz = qobuzWhaleMp3(track, deadline);
+        AURA_DEV_WRITE('[GUARDIAN379] Qobuz MP3 probe_ms=' + (Date.now()-guardianQobuzStart) + ' esito=' + (whaleQobuz ? 'mp3' : 'nessuno'));
+
       }
       if (whaleNeteaseReady) AURA_DEV_WRITE('[WHALE270] NetEase MP3 riusato; nessuna nuova ricerca/bitrate, Deezer High saltato.');
       if (!whaleNeteaseReady && !whaleQobuz && toggle('sourceDeezer', false) && AURA_ECLIPSE_ULTRAMAX &&
@@ -3682,6 +4044,21 @@ return {
     if (!event || event.pressed !== true) return;
     var key = text(event.key);
     if (key === 'verify') key = 'verify_tidal'; // Supports an event queued by version 1.
+    if (key === 'qobuzPoolHealth') {
+      try {
+        var h=LAST_QOBUZ_POOL.health();
+        var groups=[['Personali','user'],['Remoti','pool'],['Integrati','shared']];
+        myspoti.log('[POOL318] Qobuz Eclipse · salute locale (nessun test di rete)');
+        for(var hi=0;hi<groups.length;hi++){
+          var g=groups[hi];
+          myspoti.log('[POOL318] '+g[0]+': disponibili='+ (h.counts[g[1]]-h.blocked[g[1]])+'/'+h.counts[g[1]]+'; cooldown='+h.blocked[g[1]]);
+        }
+        myspoti.log('[POOL318] Pool remoto: '+(h.remoteConfigured?'configurato':'non configurato')+'; cache '+(h.remoteCached?'valida':'assente/scaduta')+(h.remoteAgeMinutes===null?'':'; eta='+h.remoteAgeMinutes+' min'));
+        myspoti.log('[POOL318] Stato dedotto dalla cache; non conferma validita token o raggiungibilita server.');
+        notice('Stato accessi locali scritto nel Registro, senza credenziali.');
+      } catch (err) { myspoti.log('[POOL318] Diagnostica non disponibile: '+String(err)); }
+      return;
+    }
     if (key === 'zooSourceStatus') {
       var names=['Qobuz Eclipse','Qobuz Aura','Tidal Aura','NetEase','JioSaavn'];
       var q=0,d=0;
@@ -3727,8 +4104,8 @@ return {
     }
     if (key === 'resetQobuzCooldown') {
       var ok = resetQobuzDeadVerified('PULSANTE');
-      notify(ok ? 'Cooldown Qobuz azzerati e verificati. Puoi riprovare.' :
-        'Reset cooldown Qobuz non verificato: controlla il Registro.');
+      notify(ok ? 'Attese account locali azzerate e verificate. Puoi riprovare.' :
+        'Azzeramento attese account locali non verificato: controlla il Registro.');
       return;
     }
     if (key === 'clearCache') {
@@ -3740,10 +4117,14 @@ return {
       return;
     }
     if (key === 'forget') {
-      providers.forEach(function (p) { myspoti.storage.remove(p.storage); });
-      myspoti.storage.remove(INSTALL_KEY); myspoti.storage.remove(PENDING_KEY); clearQueue();
-      myspoti.storage.remove(MATCH_KEY); myspoti.storage.remove(HEALTH_KEY); NETEASE_FAST.clearCache(); AURA_JIOSAAVN.reset(); SOURCE_MANAGER.reset(); kept = {}; lastNotice = 0;
-      log('Sessioni locali cancellate.'); notify('Sessioni locali cancellate.');
+      // RC1: reset only Aura auth state. Preserve all matching and audio caches,
+      // all Vault accounts, and unrelated provider health/cooldowns.
+      providers.forEach(function (p) { myspoti.storage.remove(p.storage); delete lastSilent[p.key]; });
+      myspoti.storage.remove(INSTALL_KEY); myspoti.storage.remove(PENDING_KEY);
+      myspoti.storage.remove(REVERIFY_KEY); clearQueue();
+      log('[RC1] Aura auth sessions reset only; audio caches and Vault preserved.');
+      notify('Solo sessioni Aura azzerate. Vault e cache audio conservati.');
+      return;
     }
   });
   function finishVerification(event) {
@@ -3751,6 +4132,7 @@ return {
     var mine = !!pending && text(event && event.id) === text(pending.id);
     finishVerificationCore(event);
     if (!mine) return;
+    log('[SHIELD351] callback-finished');
     try {
       if (event && event.error) clearQueue();
       else nextInQueue();
@@ -3759,18 +4141,82 @@ return {
   // Startup verification: reuse Aura's existing serial verification queue.
   // Do not invalidate valid sessions or interrupt an ongoing authentication.
   function verifyOnStartup() {
+    // SHIELD350: always log entry and reason for early return, without exposing secrets.
+    log('[SHIELD350] startup entered');
     try {
-      if (pendingValid()) { log('Avvio: verifica già in corso, nessuna nuova apertura.'); return; }
-      var missing = [];
+      if (pendingValid()) {
+        log('[SHIELD350] startup state=verification-pending');
+        return;
+      }
+      var missing = [], valid = [], expired = [];
       providers.forEach(function (p) {
-        if ((p.key === 'qobuz' || p.key === 'tidal') && !validSession(myspoti.storage.get(p.storage))) missing.push(p.key);
+        if (p.key !== 'qobuz' && p.key !== 'tidal') return;
+        var session = myspoti.storage.get(p.storage);
+        var structural = validSession(session);
+        var expiry = structural && session.expiresAt ? Date.parse(session.expiresAt) : NaN;
+        // A local expiration is not proof of server-side validity or revocation.
+        if (structural && isFinite(expiry) && expiry <= Date.now()) {
+          expired.push(p.key);
+          missing.push(p.key);
+        } else if (structural) {
+          valid.push(p.key);
+        } else {
+          missing.push(p.key);
+        }
       });
-      if (!missing.length) { log('Avvio: tutte le sessioni Aura già valide.'); return; }
-      log('Avvio: verifica automatica delle sessioni mancanti: ' + missing.join(', ') + '.');
-      myspoti.storage.set(QUEUE_KEY, missing);
-      nextInQueue();
-    } catch (e) { log('Avvio: verifica automatica non disponibile: ' + String(e)); }
+      log('[SHIELD350] startup state=inventory valid='+valid.join(',')+' missing='+missing.join(',')+' expired='+expired.join(','));
+      log('[SHIELD351] startup persistence inventory valid='+valid.join(',')+' missing='+missing.join(',')+' expired='+expired.join(','));
+      if (!missing.length) {
+        log('[SHIELD350] startup state=session-valid-local; server-validity=unverified');
+        return;
+      }
+      var unresolved = [];
+      missing.forEach(function (key) {
+        var p = provider(key);
+        if (!p) return;
+        var restored = false;
+        if (!pendingValid() && !holdLeft(p)) {
+          log('[SHIELD350] '+p.name+' state=recovery-attempted');
+          restored = recover(p, Date.now() + 2900);
+        } else {
+          log('[SHIELD350] '+p.name+' state=recovery-skipped pending-or-hold');
+        }
+        log('[SHIELD350] '+p.name+' state='+(restored?'recovery-succeeded':'recovery-failed-or-skipped'));
+        if (!restored) unresolved.push(key);
+      });
+      if (unresolved.length && toggle('autoVerify', true)) {
+        var queued = myspoti.storage.get(QUEUE_KEY);
+        queued = Array.isArray(queued) ? queued.slice() : [];
+        unresolved.forEach(function (key) { if (queued.indexOf(key) < 0) queued.push(key); });
+        myspoti.storage.set(QUEUE_KEY, queued);
+        log('[SHIELD350] startup state=verification-queued sources='+unresolved.join(','));
+        // STARTUP380: restore Aura's immediate serial verification at extension startup.
+        // Silent recovery has already run; only unresolved providers remain queued.
+        // pendingValid() prevents overlapping interactive challenges.
+        if (!pendingValid()) {
+          log('[STARTUP380] startup queue=dispatch-immediate');
+          nextInQueue();
+        }
+      } else if (!unresolved.length) {
+        clearQueue();
+        log('[SHIELD350] startup state=all-restored');
+      } else {
+        log('[SHIELD350] startup state=unresolved-autoVerify-disabled');
+      }
+    } catch (e) {
+      log('[SHIELD350] startup state=exception type='+((e && e.name) || 'unknown'));
+    }
   }
+  // SILENT GUARD 318: only a genuine pause is a safe opportunity.
+  // End/skip can immediately start another song; never open a challenge there.
+  myspoti.on('playback', function (event) {
+    if (!event || event.type !== 'pause' || !toggle('autoVerify', true)) return;
+    if (pendingValid()) return;
+    var queued = myspoti.storage.get(QUEUE_KEY);
+    if (!Array.isArray(queued) || !queued.length) return;
+    log('Silent Guard: player in pausa; riprendo le verifiche Aura in attesa.');
+    nextInQueue();
+  });
   myspoti.on('auth', finishVerification);
   // COLIBRI277: independent compressed-audio streaming mode; HQ resolver untouched.
   function colibriResolve(track) {
@@ -3796,29 +4242,113 @@ return {
     AURA_DEV_WRITE('[COLIBRI277] Nessun audio compresso: controllo restituito a MySpoti');
     return null;
   }
+  // CLOUD363: metadata-only codec classification. Never inspect signed URLs,
+  // never infer lossless quality from an unknown provider, never log credentials.
+  function cloud363Codec(candidate) {
+    if (!candidate) return 'none';
+    var raw=String(candidate.format||candidate.codec||candidate.mimeType||'').toLowerCase();
+    if (/mp3|mpeg/.test(raw)) return 'mp3';
+    if (/aac|m4a/.test(raw)) return 'aac';
+    if (/flac/.test(raw)) return 'flac';
+    // Existing Qobuz resolver returns metadata but no format field.
+    if (/^Qobuz (personale|Eclipse|Aura)$/i.test(String(candidate.provider||'')) && candidate.url) return 'flac-declared';
+    return 'unknown';
+  }
+  function cloud363Quality(candidate) {
+    if (!candidate) return 'none';
+    var bits=Number(candidate.bitDepth)||0, hz=Number(candidate.sampleRate)||0;
+    return (bits>=8&&bits<=64?bits+'bit':'?bit')+'/'+(hz>=8000&&hz<=384000?(hz/1000)+'kHz':'?kHz');
+  }
+  // CLOUD364: central, bounded telemetry and request coordination. No signed
+  // URLs or credentials enter the shared state. Existing resolvers remain the
+  // single authority for source priority and audio validation.
+  var cloud364State = { requests:0, hits:0, misses:0, rescued:0, errors:0, overBudget:0, byEngine:{}, byProvider:{}, active:{} };
+  function cloud364Safe(value) { return String(value||'none').replace(/[^a-zA-Z0-9 ._-]/g,'').slice(0,42); }
+  function cloud364Count(bucket,key) { bucket[key]=(bucket[key]||0)+1; }
+  function cloud364Report(engine,candidate,elapsed,budget) {
+    var st=cloud364State, provider=cloud364Safe(candidate&&candidate.provider);
+    st.requests++;cloud364Count(st.byEngine,engine);cloud364Count(st.byProvider,provider);
+    if(elapsed>budget)st.overBudget++;
+    AURA_DEV_WRITE('[CLOUD364] central requests='+st.requests+' cache_hits='+st.hits+' cache_misses='+st.misses+' fast_rescue='+st.rescued+' errors='+st.errors+' over_budget='+st.overBudget+' shared_search_hits='+CLOUD365_SEARCH.stats.hits+' shared_search_stores='+CLOUD365_SEARCH.stats.stores+' engine='+engine+' provider='+provider+' elapsed_ms='+elapsed);
+  }
+  // CLOUD361: opt-in active coordinator. Preserve source resolvers and their
+  // established quality/fallback order; centralize engine dispatch and deadline.
+  function cloud361Resolve(track, engine) {
+    var started=Date.now();
+    var budget=engine==='COLIBRI'?8500:11500;
+    AURA_DEV_WRITE('[CLOUD361] begin mode=active engine='+engine+' budget_ms='+budget);
+    var candidate=null;
+    try {
+      candidate=engine==='COLIBRI'?colibriResolve(track):resolve(track,budget,false)[0];
+    } catch (err) {
+      cloud364State.errors++;
+      AURA_DEV_WRITE('[CLOUD361] error='+String(err&&err.name||'unknown')+' legacy-retry=off');
+      return null; // No duplicate network calls on failure.
+    }
+    cloud364Report(engine,candidate,Date.now()-started,budget);
+    AURA_DEV_WRITE('[CLOUD362] dispatch=complete engine='+engine+' duration_ms='+(Date.now()-started)+' resolver_calls=1');
+    AURA_DEV_WRITE('[CLOUD363] engine='+engine+' codec='+cloud363Codec(candidate)+' quality='+cloud363Quality(candidate)+' elapsed_ms='+(Date.now()-started)+' budget_ms='+budget+' budget_exceeded='+((Date.now()-started)>budget)+' fallback='+(candidate?'resolved':'none'));
+    AURA_DEV_WRITE('[CLOUD361] end mode=active engine='+engine+' elapsed_ms='+(Date.now()-started)+' result='+(candidate?'found':'not-found')+' provider='+(candidate?String(candidate.provider||'unknown').replace(/[^a-zA-Z0-9 ._-]/g,'').slice(0,42):'none')+' codec='+(candidate?String(candidate.format||'unknown'):'none'));
+    return candidate;
+  }
   myspoti.provide('audio-source', function (track) {
+    if(source352Active()){
+      var only352=source352Selected();
+      if(!only352){AURA_DEV_WRITE('[SOURCE352] ERRORE: selezionare esattamente una fonte');return null;}
+      AURA_DEV_WRITE('[SOURCE352] audio isolamento='+only352+' fallback_interno=OFF');
+    }
+    // NUVOLA320: strict experimental-relay-only isolation for both playback and download.
+    if (toggle('nuvolaIsolate320', false)) {
+      var nFound = null;
+      try { nFound = AURA_RELAY_319.resolve(track, Date.now()+12000, toggle, AURA_DEV_WRITE); }
+      catch (nErr) { AURA_DEV_WRITE('[NUVOLA320] resolver error '+String(nErr).slice(0,100)); }
+      AURA_DEV_WRITE('[NUVOLA320] isolamento ON; fonte='+(nFound?nFound.provider:'nessuna')+'; legacy saltate');
+      if (!nFound || (!nFound.url && !nFound.manifest)) return null;
+      var nLabel = String(nFound.provider||'Relay sperimentale')+' · FLAC dichiarato';
+      var nOut = {source:nLabel,expiresInMs:KEEP_MS};
+      if (nFound.url) { nOut.url=nFound.url; nOut.mimeType='audio/flac'; }
+      else {nOut.manifest=nFound.manifest;nOut.mimeType=nFound.mimeType||'audio/mp4';nOut.codec=nFound.codec||'flac';}
+      return nOut;
+    }
     var t0 = Date.now(), key = track && typeof track === 'object' ? keyOf(track) : '';
+    if(source352Active())key += '|SOURCE352:'+source352Selected();
+    key += '|cloud361:' + (true?'1':'0');
     key += '|whale:' + (toggle('splashWhale',false)?'1':'0');
     key += '|colibri:' + (toggle('colibriEco',false)?'1':'0');
     key += '|tigro:' + (toggle('tigroHQ',true)?'1':'0');
+    key += '|relay319:' + ['eljohnzc','aurix'].map(function(x){return toggle('relay319_'+x,false)?'1':'0';}).join('');
     key += '|sources:' + ['sourceNetEase','sourceQobuzLast','sourceQobuzAura','sourceTidalAura','sourceQobuzPersonal','sourceDeezer','sourceJioSaavn'].map(function(x){return toggle(x,true)?'1':'0';}).join('');
     if ((++audioCacheCalls % 32) === 0 || Object.keys(kept).length > 300) pruneAudioCache(t0);
     var k = key ? kept[key] : null;
     if (k) {
       // La stessa richiesta pochi secondi dopo è Myspoti che riprova: si ricostruisce.
       if (t0 - k.at < RETRY_MS) {
-        // No diagnostic logging on retry.
-        delete kept[key];
+        // CLOUD362: repeated same-track request reuses the validated output.
+        // The key includes engine, source toggles and isolation; no new HTTP call.
+        if (true) cloud364State.rescued++;
+        if (true) cloud364State.hits++;
+        if (true) AURA_DEV_WRITE('[CLOUD362] fast-rescue=hit saved_request=1 elapsed_ms='+(Date.now()-t0));
+        return k.out;
       } else if (t0 - k.at < KEEP_MS) {
         // Native app cache may already have served the result.
+        if (true) cloud364State.hits++;
+        if (true) AURA_DEV_WRITE('[CLOUD361] cache=hit elapsed_ms='+(Date.now()-t0)+' mode=active');
+        else if (false) AURA_DEV_WRITE('[CLOUD348] cache=hit elapsed_ms='+(Date.now()-t0)+' mode=shadow');
         return k.out;
       } else delete kept[key];
     }
+    // CLOUD348: observation-only coordinator; no HTTP, matching or fallback changes.
+    var cloud361Enabled = true;
+    if (cloud361Enabled) cloud364State.misses++;
+    var cloud348Enabled = !cloud361Enabled && false;
     var zooMode = toggle('colibriEco',false) ? 'COLIBRI' : (toggle('splashWhale',false) ? 'WHALE' : 'TIGRO');
+    if (cloud348Enabled) AURA_DEV_WRITE('[CLOUD348] begin engine='+zooMode+' cache=miss; source-priority=legacy; mode=shadow');
     AURA_DEV_WRITE('[ZOO283] modalita='+zooMode+'; toggleTigro='+toggle('tigroHQ',true)+'; priorita Colibri > Whale > Tigro');
     AURA_DEV_WRITE('[ZOO283] '+zooMode+' priorita HQ: Qobuz personale > Qobuz Eclipse > Qobuz Aura > Tidal Aura > Deezer FLAC > NetEase FLAC > fallback');
-    var found = zooMode === 'COLIBRI' ? colibriResolve(track) : resolve(track, 13200, false)[0];
+    var found = cloud361Enabled ? cloud361Resolve(track,zooMode) : (zooMode === 'COLIBRI' ? colibriResolve(track) : resolve(track, 13200, false)[0]);
     AURA_DEV_WRITE('[TWC304] ricerca motore=' + zooMode + ' tempo_ms=' + (Date.now() - t0) + ' esito=' + (found ? 'found' : 'not-found'));
+    if (!cloud361Enabled && false) AURA_DEV_WRITE('[CLOUD363] shadow engine='+zooMode+' codec='+cloud363Codec(found)+' quality='+cloud363Quality(found));
+    if (cloud348Enabled) AURA_DEV_WRITE('[CLOUD348] end engine='+zooMode+' elapsed_ms='+(Date.now()-t0)+' result='+(found?'found':'not-found')+' provider='+(found?String(found.provider||'unknown').replace(/[^a-zA-Z0-9 ._-]/g,'').slice(0,42):'none')+' codec='+(found?String(found.format||'unknown'):'none')+' mode=shadow');
     // Resolver matching and source selection are unchanged. No redundant
     // quality-report assembly on the hot audio path.
     if (found) {
@@ -3842,6 +4372,24 @@ return {
     return out;
   });
   myspoti.provide('download-source', function (track) {
+    if(source352Active()){
+      var only352=source352Selected();
+      if(!only352){AURA_DEV_WRITE('[SOURCE352] download: selezionare esattamente una fonte');return null;}
+      AURA_DEV_WRITE('[SOURCE352] download isolamento='+only352);
+    }
+    // NUVOLA320: download must not fall through to legacy sources either.
+    if (toggle('nuvolaIsolate320', false)) {
+      var nFound=null;
+      try { nFound=AURA_RELAY_319.resolve(track,Date.now()+24000,toggle,AURA_DEV_WRITE); }
+      catch (nErr) { AURA_DEV_WRITE('[NUVOLA320] download resolver error '+String(nErr).slice(0,100)); }
+      AURA_DEV_WRITE('[NUVOLA320] download isolato; fonte='+(nFound?nFound.provider:'nessuna'));
+      if (!nFound || (!nFound.url && !nFound.manifest)) return null;
+      var nOut={format:nFound.format||(nFound.url?'flac':'dash-flac'),provider:nFound.provider,isrcMatched:nFound.isrcMatched};
+      if(nFound.url)nOut.url=nFound.url;else {nOut.manifest=nFound.manifest;nOut.mimeType=nFound.mimeType||'audio/mp4';nOut.codec=nFound.codec||'flac';}
+      if(nFound.bitDepth)nOut.bitDepth=nFound.bitDepth;
+      if(nFound.sampleRate)nOut.sampleRate=nFound.sampleRate;
+      return [nOut];
+    }
     var all = resolve(track, 27000, true); if (!all.length) return null;
     return all.map(function (found) {
       var out = { format: found.format || (found.url ? 'flac' : 'dash-flac'), provider: found.provider, isrcMatched: found.isrcMatched };

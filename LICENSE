@@ -1,10 +1,10 @@
-Aura Eclipse · Nuvola — Original contributions and third-party notices
+Aura Eclipse · Nuvola — License and third-party notices
 
-Copyright (c) 2026 kekkox88 — original Aura Eclipse contributions.
+Copyright (c) 2026 kekkox88 — original Aura Eclipse contributions
 
-Original contributions owned by kekkox88 are made available under the MIT License. This notice does not claim ownership of, or relicense, third-party code, APIs, services, audio, tokens or credentials.
+Original contributions by kekkox88 are licensed under the MIT License below, to the extent that the contributor owns the relevant rights. This notice does not relicense any third-party code, APIs, services, content or credentials. All original third-party copyright notices and license obligations continue to apply.
 
-MIT License — original Aura Eclipse contributions
+MIT License — Aura Eclipse original contributions
 
 Copyright (c) 2026 kekkox88
 
@@ -26,11 +26,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-
 ---
-
-Historical third-party MIT notice retained pending source-provenance audit.
-Its presence is not proof that the referenced code is incorporated.
+Preserved historical third-party license notice from the prior package.
+Its applicability to the current code requires source-provenance review.
+This notice is retained to avoid inadvertently deleting third-party attribution.
 
 MIT License
 
@@ -53,3 +52,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Third-party project references (not a claim of incorporation):
+- MySpoti: https://github.com/kota-zo/myspoti (GPL-3.0)
+- Mornye: https://github.com/mornyeapp/Mornye (LGPL-3.0)
+- Mornye Extension: https://github.com/mornyeapp/Mornye-Extension (LGPL-3.0)
+- Mornye Python: https://github.com/mornyeapp/Mornye-Python (MIT)
+
+Where third-party code is actually incorporated, its original license terms and required notices prevail for that code. This file does not authorize redistribution of third-party credentials or copyrighted audio.

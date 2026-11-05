@@ -2,7 +2,7 @@
 
 Estensione audio indipendente per [MySpoti](https://github.com/kota-zo/myspoti). **Autore e manutentore: kekkox88.** ID stabile: `aura.eclipse.tigro`.
 
-> **Nota di distribuzione:** la Build 384 FINAL è pubblicata come `extension.zip` nella [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). Il ramo `main` contiene una versione precedente del codice sorgente.
+> **Nota di distribuzione:** la Build 384 FINAL è pubblicata come `extension.zip` nella [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). I file alla radice di `main` sono allineati alla Build 384. Gli archivi automatici “Source code” della release v4.5.0 contengono lo snapshot precedente del tag.
 
 ## Nuvola e i tre motori
 

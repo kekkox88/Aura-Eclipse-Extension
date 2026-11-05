@@ -1,12 +1,12 @@
 {
   "id": "aura.eclipse.tigro",
-  "name": "Aura Eclipse · TWC",
-  "version": "1.3.5",
-  "versionCode": 317,
+  "name": "Aura Eclipse · Nuvola",
+  "version": "4.5.0",
+  "versionCode": 384,
   "apiVersion": 1,
   "minAppVersion": "2.1.0",
   "author": "kekkox88",
-  "description": "Aura Eclipse TWC: tre motori, un solo obiettivo. 🐯 Tigro per FLAC e Hi-Res, 🐳 Whale per brani rari e fallback, 🐦 Colibrì per risparmiare dati. Supporta account personali, Vault e diagnostica. Autore: kekkox88. Ringraziamenti: solidsnakeater, PUNITOR_211080 e TheWinner02.",
+  "description": "☁️ Aura Eclipse Nuvola: tre motori audio.\n• 🐯 Tigro — FLAC e Hi-Res.\n• 🐳 Whale — brani rari, HQ prima e recupero MP3/AAC.\n• 🐦 Colibrì — audio compresso per risparmiare dati.\nNuvola coordina cache, Fast Rescue e verifica automatica Aura.",
   "category": "tools",
   "tags": [
     "audio",
@@ -42,7 +42,11 @@
         "streaming-qobuz-std.akamaized.net",
         "tidal.com",
         "www.jiosaavn.com",
-        "www.qobuz.com"
+        "www.qobuz.com",
+        "eljohnzc-addon.de.deplexo.com",
+        "addon-2.aurix.dpdns.org",
+        "*.audio.tidal.com",
+        "*.akamaized.net"
       ],
       "why": "Interroga le fonti audio configurate"
     },
@@ -65,6 +69,10 @@
     {
       "name": "webview.page",
       "why": "Apre il Vault degli account e lo stato delle fonti"
+    },
+    {
+      "name": "playback.events",
+      "why": "Rinvia le verifiche Aura fino alla pausa dell’ascolto"
     }
   ],
   "media": {
@@ -77,7 +85,10 @@
       "*.ultramax.vip",
       "music-api.gdstudio.xyz",
       "music.163.com",
-      "streaming-qobuz-std.akamaized.net"
+      "streaming-qobuz-std.akamaized.net",
+      "eljohnzc-addon.de.deplexo.com",
+      "addon-2.aurix.dpdns.org",
+      "*.akamaized.net"
     ]
   },
   "settings": [
@@ -92,65 +103,46 @@
       "key": "splashWhale",
       "type": "toggle",
       "label": "🐳 WHALE · Rare Rescue",
-      "description": "Brani rari, edit e remix: prima HQ, poi MP3/AAC. Prevale su Tigro.",
+      "description": "Complementare a Tigro: prima FLAC/Hi-Res, poi MP3/AAC per brani rari, edit e remix.",
       "default": false
     },
     {
       "key": "colibriEco",
       "type": "toggle",
       "label": "🐦 COLIBRÌ · Eco Stream",
-      "description": "Audio compresso per risparmiare dati. Prevale sugli altri motori.",
+      "description": "Modalità alternativa MP3 a basso consumo dati. Prevale su Tigro e Whale.",
       "default": false
     },
     {
       "key": "autoVerify",
       "type": "toggle",
-      "label": "SESSIONI AURA · Verifica automatica",
-      "description": "Apre la verifica quando richiesta. Attiva di default.",
+      "label": "🔐 SESSIONI AURA · Recupero automatico",
+      "description": "Verifica le sessioni all’avvio, intervenendo solo se necessario.",
       "default": true
     },
     {
       "key": "verify_all",
       "type": "button",
-      "label": "SESSIONI AURA · Verifica ora",
-      "description": "Controlla le sessioni Aura che richiedono accesso."
+      "label": "🔐 SESSIONI AURA · Verifica fonti",
+      "description": "Controlla manualmente lo stato delle sessioni Aura."
     },
     {
       "key": "forceVerify",
       "type": "button",
-      "label": "SESSIONI AURA · Riprova accesso",
-      "description": "Forza una nuova verifica delle sessioni Aura."
-    },
-    {
-      "key": "zooSourceStatus",
-      "type": "button",
-      "label": "DIAGNOSTICA · Riepilogo fonti",
-      "description": "Mostra fonti e account configurati, senza credenziali."
-    },
-    {
-      "key": "devLogs",
-      "type": "toggle",
-      "label": "DIAGNOSTICA · Log Dev",
-      "description": "Mostra fonti, tempi, codec dichiarati ed errori.",
-      "default": false
+      "label": "🔐 SESSIONI AURA · Verifica forzata",
+      "description": "Riprova la verifica delle sessioni Aura."
     },
     {
       "key": "clearCache",
       "type": "button",
-      "label": "MANUTENZIONE · Svuota cache",
-      "description": "Cancella abbinamenti e sospensioni, non gli account."
-    },
-    {
-      "key": "resetQobuzCooldown",
-      "type": "button",
-      "label": "QOBUZ · Azzera attese",
-      "description": "Rimuove i cooldown temporanei, senza cancellare account."
+      "label": "🛠️ MANUTENZIONE · Svuota cache",
+      "description": "Cancella cache e sospensioni temporanee, non gli account."
     },
     {
       "key": "forget",
       "type": "button",
-      "label": "MANUTENZIONE · Sessioni Aura",
-      "description": "Cancella le sessioni Aura, non le credenziali."
+      "label": "🛠️ MANUTENZIONE · Ripristina sessioni",
+      "description": "Cancella le sessioni Aura per consentire una nuova verifica; non elimina gli account."
     },
     {
       "key": "qobuzPersonalToken1",
@@ -223,17 +215,36 @@
       "type": "secret",
       "label": "🔐 Deezer 3 · Manifest URL",
       "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+    },
+    {
+      "key": "devLogs",
+      "type": "toggle",
+      "label": "🧪 DIAGNOSTICA · Log Dev avanzati",
+      "description": "Mostra dettagli di ricerca e risoluzione solo quando attivato.",
+      "default": false
+    },
+    {
+      "key": "zooSourceStatus",
+      "type": "button",
+      "label": "🧪 DIAGNOSTICA · Riepilogo fonti",
+      "description": "Mostra lo stato delle fonti senza rivelare credenziali."
+    },
+    {
+      "key": "resetQobuzCooldown",
+      "type": "button",
+      "label": "🛠️ MANUTENZIONE · Azzera attese Qobuz",
+      "description": "Rimuove le attese temporanee degli account Qobuz senza cancellarli."
     }
   ],
   "welcome": {
-    "message": "Benvenuto in Aura Eclipse 1.3.5 — TWC! Tre motori audio: Tigro per HQ veloce, Whale per brani rari e Colibrì per risparmiare dati. Scegli la modalità nelle Impostazioni.",
+    "message": "Benvenuto in Aura Eclipse 4.5.0 · Nuvola! Tre motori audio, coordinamento automatico e ricerca ottimizzata.",
     "steps": [
-      "🐯 Tigro è attivo di default: cerca FLAC e Hi-Res.",
-      "🐳 Attiva Whale per brani rari e fallback MP3/AAC.",
-      "🐦 Attiva Colibrì per consumare meno dati.",
-      "🔐 Configura gli account nelle Impostazioni. Per il Vault scegli «Apri la sua pagina» dal menu dell’estensione.",
-      "🩺 Usa Log Dev solo per diagnosticare problemi."
+      "🐯 Tigro: FLAC e Hi-Res, attivo di default.",
+      "🐳 Whale: attivalo insieme a Tigro per recuperare brani rari; prima HQ, poi MP3/AAC.",
+      "🐦 Colibrì: modalità alternativa MP3 per risparmiare dati; prevale sugli altri motori.",
+      "🔐 Gestisci i tuoi account nel Vault · Account Manager.",
+      "🧪 Log Dev avanzati attivabili nelle Impostazioni; disattivati di default."
     ]
   },
-  "changelog": "Benvenuto in Aura Eclipse 1.3.5! 🐯 Tigro: ascolto HQ veloce (predefinito). 🐳 Whale: ricerca estesa con fallback MP3/AAC. 🐦 Colibrì: audio compresso per risparmiare dati. 🔐 Per accedere al Vault, apri il menu dell’estensione e seleziona «Apri la sua pagina». Qui puoi consultare le credenziali salvate. ⚙️ Configura gli account nelle Impostazioni. Attiva i Log Dev solo per la diagnostica."
+  "changelog": "4.5.0 · Nuvola ☁️\n• Nuova icona e interfaccia rinnovata.\n• ☁️ Nuvola: meno richieste duplicate e riutilizzo dei risultati.\n• 🐯 Tigro: ricerca rapida FLAC e Hi-Res.\n• 🐳 Whale Guardian: ricerca HQ, poi recupero MP3/AAC per brani rari, edit e remix.\n• 🐦 Colibrì: percorso MP3 autonomo per risparmiare dati.\n• Sessioni Aura: ripristinata la verifica automatica all'avvio, silenziosa quando possibile.\n• Log base essenziali; Log Dev avanzato opzionale e disattivato di default."
 }
