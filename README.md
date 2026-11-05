@@ -2,7 +2,7 @@
 
 Estensione audio indipendente per [MySpoti](https://github.com/kota-zo/myspoti). **Autore e manutentore: kekkox88.** ID stabile: `aura.eclipse.tigro`.
 
-> **Nota di distribuzione:** questa pagina documenta la Build 384 FINAL. La Release GitHub con l'allegato `extension.zip` deve ancora essere pubblicata. I file sorgente presenti sul branch `main` possono appartenere a una versione precedente: non usare il branch come pacchetto di installazione.
+> **Nota di distribuzione:** la Build 384 FINAL è pubblicata come `extension.zip` nella [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). Il ramo `main` contiene una versione precedente del codice sorgente.
 
 ## Nuvola e i tre motori
 
@@ -19,7 +19,7 @@ La sezione Vault gestisce tre slot Qobuz personali e tre slot Deezer ARL. Le ses
 
 ## Installazione e aggiornamenti
 
-Installare il pacchetto `extension.zip` allegato alla [Release ufficiale](https://github.com/kekkox88/Aura-Eclipse-Extension/releases) quando disponibile. Non confondere il file ZIP dell'estensione con il codice sorgente del branch. L'ID resta invariato e il numero di build MySpoti per questa versione è **384**.
+Installare il pacchetto `extension.zip` allegato alla [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). Non confondere il file ZIP dell'estensione con il codice sorgente del branch. L'ID resta invariato e il numero di build MySpoti per questa versione è **384**.
 
 ## Crediti
 
