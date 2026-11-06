@@ -1,33 +1,74 @@
-# Aura Eclipse · Nuvola 4.5.0 — Build 384
+# Aura Eclipse 6.0.7 · Nuvola · Build 613 ☁️
 
-Estensione audio indipendente per [MySpoti](https://github.com/kota-zo/myspoti). **Autore e manutentore: kekkox88.** ID stabile: `aura.eclipse.tigro`.
+**Three audio engines. One smart coordinator.**
 
-> **Nota di distribuzione:** la Build 384 FINAL è pubblicata come `extension.zip` nella [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). I file alla radice di `main` sono allineati alla Build 384. Gli archivi automatici “Source code” della release v4.5.0 contengono lo snapshot precedente del tag.
+Aura Eclipse is a MySpoti audio extension developed by **kekkox88**. It searches compatible audio sources using three selectable strategies and an automatic coordination layer.
 
-## Nuvola e i tre motori
+## Getting started (30 seconds)
 
-- ☁️ **Nuvola** coordina ricerche, cache e risultati condivisi; non è un quarto motore.
-- 🐯 **Tigro · HQ Fast** ricerca rapidamente FLAC e Hi-Res.
-- 🐳 **Whale · Rare Rescue / Guardian** integra Tigro: prova HQ e poi MP3/AAC per brani rari, edit e remix.
-- 🐦 **Colibrì · Eco Stream** privilegia audio compresso e risparmio dati. Disattivalo per utilizzare Tigro + Whale in cascata HQ → lossy.
+1. Install **Aura Eclipse** from the MySpoti extension store, or import its release package using MySpoti's extension installation feature.
+2. Open **MySpoti → Extensions → Aura Eclipse** and leave **TIGRO** enabled for fast HQ listening.
+3. Play a track normally. Enable **WHALE** only if you want more extensive recovery, or **COLIBRÌ** when you prefer lower data usage.
+4. If a provider requires authentication, use the built-in session verification or **Vault · Account Manager** as appropriate. No account setup is necessary for every source.
 
-Quando le fonti non restituiscono audio, MySpoti può utilizzare il proprio fallback Spotify. La cache del player può conservare temporaneamente la sorgente o il codec di un brano già riprodotto: per confronti attendibili usare brani nuovi o svuotare la cache.
+**Important:** You do **not** need to enable all three engines. For most listeners, start with **TIGRO only**.
 
-## Account, sessioni e diagnostica
+## Quick start: which switches should I enable?
 
-La sezione Vault gestisce tre slot Qobuz personali e tre slot Deezer ARL. Le sessioni Aura possono essere verificate automaticamente all'avvio; sono disponibili verifica manuale, manutenzione cache e azzeramento delle attese Qobuz. I Log Dev avanzati sono opzionali e disattivati per impostazione predefinita. Non condividere log contenenti credenziali.
+**You do not need to enable all three engines.** Start with the default configuration, then change it according to your listening needs.
 
-## Installazione e aggiornamenti
+| Engine | Default | Purpose | When to use |
+| --- | --- | --- | --- |
+| 🐯 **TIGRO · HQ Fast** | **ON** | Fast search for FLAC/Hi-Res | Everyday listening with a focus on lossless audio |
+| 🐳 **WHALE · Rare Rescue** | OFF | Searches HQ first, then tries MP3/AAC when needed | Rare songs, edits, remixes, or when HQ cannot be found |
+| 🐦 **COLIBRÌ · Eco Stream** | OFF | Prioritizes compressed MP3/AAC | Mobile data saving or when lossy is preferred |
 
-Installare il pacchetto `extension.zip` allegato alla [release v4.5.0](https://github.com/kekkox88/Aura-Eclipse-Extension/releases/tag/v4.5.0). Non confondere il file ZIP dell'estensione con il codice sorgente del branch. L'ID resta invariato e il numero di build MySpoti per questa versione è **384**.
+**Suggested setups**
 
-## Crediti
+- **HQ listening:** TIGRO on; WHALE and COLIBRÌ off (the installation default).
+- **Broader rescue:** Enable WHALE when you want a fallback to compressed formats.
+- **Data saving:** Use COLIBRÌ when you prefer compressed audio.
 
-- **Aura Eclipse:** kekkox88 — sviluppo e manutenzione delle contribuzioni originali.
-- **MySpoti:** [kota-zo/myspoti](https://github.com/kota-zo/myspoti) — piattaforma ospitante indipendente.
-- **Ringraziamenti:** Mauro aka @solidsnakeater, Lello aka @PUNITOR_211080 (beta testing), TheWinner02 (progetto Echo).
-- **Riferimento tecnico:** [Mornye](https://github.com/mornyeapp/Mornye) e [Mornye-Extension](https://github.com/mornyeapp/Mornye-Extension). Il riferimento non implica affiliazione né prova di riutilizzo di codice.
+The switches select search strategies, **not three separate music services**. Enabling all of them is not required and does not guarantee higher quality. When multiple engines are enabled, **COLIBRÌ takes precedence over WHALE, and WHALE over TIGRO**. Actual playback also depends on source availability and the audio already cached by MySpoti.
 
-## Licenza e responsabilità
+## Behind the scenes
 
-Le contribuzioni originali di kekkox88 sono proposte con licenza MIT; eventuale codice di terzi mantiene i propri diritti e obblighi. Consultare [LICENSE](LICENSE). Le licenze del progetto ospitante MySpoti e di Mornye non vengono automaticamente trasferite a questa estensione. Prima della distribuzione pubblica devono essere verificati provenienza del codice e diritti di redistribuzione di eventuali credenziali incorporate.
+- ☁️ **NUVOLA · Smart Coordinator:** automatic search coordination and metadata caching; no additional toggle is needed.
+- 🌞 **SOLE · Legacy Core:** compatibility alternative under Maintenance; switch takes effect on the next audio request.
+- 🔐 **Vault · Account Manager:** manage your own compatible account details and sessions. Do not share tokens or credentials.
+- 🔄 **Automatic Session Verification:** enabled by default where supported.
+- 🛠️ **Advanced Logging:** disabled by default; enable only when diagnosing a problem.
+
+## Tidal refresh token pool
+
+In **Vault · Account Manager**, use **Tidal · Refresh Pool** to enter one or more Tidal OAuth2 **refresh tokens**. Separate tokens with commas (recommended), for example:
+
+```text
+REFRESH_TOKEN_1,REFRESH_TOKEN_2,REFRESH_TOKEN_3
+```
+
+The current parser also accepts semicolons, whitespace, and new lines, and ignores duplicate entries. **Do not enter an access token, email address, or user ID.** The pool can retry another token when one is unavailable; a successful refresh confirms authentication, **not** direct Tidal audio playback. The pool supports Tidal catalog lookup, while audio playback uses the configured resolvers. Tokens can expire or be revoked.
+
+## Important behavior
+
+**Playback cache:** MySpoti may reuse an already cached version of a track after an engine change. For example, switching from COLIBRÌ to TIGRO does not necessarily replace a previously cached MP3 with FLAC on the same track. This is not proof that the new engine failed to search.
+
+**Audio availability:** Formats and response times depend on the requested track, accessible providers, connectivity, and valid sessions. FLAC/Hi-Res is not guaranteed for every track.
+
+**Credentials:** Some provider credentials in this project were intentionally shared publicly by their owner for testing. They are not guaranteed to remain valid or grant access indefinitely. Never publish your own private account credentials or unredacted diagnostic logs.
+
+## Release notes — 6.0.7 (Build 613)
+
+- Three clearly differentiated audio strategies: TIGRO, WHALE, and COLIBRÌ.
+- NUVOLA smart coordination with SOLE compatibility option.
+- Source recovery and search-performance improvements carried forward from the 6.0.x development line.
+- Updated guidance for switches, account management, and playback caching.
+
+## Credits
+
+Created and maintained by **kekkox88**. Thanks to **Mauro (@solidsnakeater)** for technical contributions and **Lello (@PUNITOR_211080)** for beta testing.
+
+## Support
+
+Before reporting a problem, include the Aura Eclipse version/build, enabled engines, and a redacted MySpoti diagnostic report. **Never publish credentials or session tokens in logs.**
+

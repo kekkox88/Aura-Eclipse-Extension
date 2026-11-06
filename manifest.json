@@ -1,12 +1,12 @@
 {
   "id": "aura.eclipse.tigro",
   "name": "Aura Eclipse · Nuvola",
-  "version": "4.5.0",
-  "versionCode": 384,
+  "version": "6.0.7",
+  "versionCode": 613,
   "apiVersion": 1,
   "minAppVersion": "2.1.0",
   "author": "kekkox88",
-  "description": "☁️ Aura Eclipse Nuvola: tre motori audio.\n• 🐯 Tigro — FLAC e Hi-Res.\n• 🐳 Whale — brani rari, HQ prima e recupero MP3/AAC.\n• 🐦 Colibrì — audio compresso per risparmiare dati.\nNuvola coordina cache, Fast Rescue e verifica automatica Aura.",
+  "description": "Aura Eclipse · Nuvola ☁️ — 3-in-1 MySpoti audio extension!\n🐯 TIGRO: fast FLAC & Hi-Res (default).\n🐳 WHALE: rare tracks; MP3/AAC rescue after HQ search.\n🐦 COLIBRÌ: data-saving MP3 streaming.\n☁️ NUVOLA: automatic smart coordinator.\n🌞 SOLE: legacy mode in Maintenance.\n🔐 VAULT: manage Qobuz, Tidal and Deezer accounts.",
   "category": "tools",
   "tags": [
     "audio",
@@ -21,74 +21,83 @@
   "actions": [
     {
       "name": "audio.source",
-      "why": "Cerca audio compatibile fra le fonti attivate"
+      "why": "Find compatible audio across enabled providers."
     },
     {
       "name": "download.source",
-      "why": "Fornisce stream compatibili per il download"
+      "why": "Provide compatible audio streams for downloads."
     },
     {
       "name": "network",
       "hosts": [
+        "*.akamaized.net",
+        "*.audio.tidal.com",
         "*.qobuz.com",
         "*.saavncdn.com",
         "*.ultramax.vip",
         "*.vercel.app",
+        "api.arcod.xyz",
+        "api.deezer.com",
+        "api.tidal.com",
         "api.zarz.moe",
+        "arcod.xyz",
+        "auth.tidal.com",
+        "bitchord-hires-addon.de.deplexo.com",
+        "deezer.rickyaddons.dpdns.org",
         "eclipse.ultramax.vip",
         "music-api.gdstudio.xyz",
         "music.163.com",
+        "openapi.tidal.com",
         "song.link",
         "streaming-qobuz-std.akamaized.net",
         "tidal.com",
         "www.jiosaavn.com",
-        "www.qobuz.com",
-        "eljohnzc-addon.de.deplexo.com",
-        "addon-2.aurix.dpdns.org",
-        "*.audio.tidal.com",
-        "*.akamaized.net"
+        "www.qobuz.com"
       ],
-      "why": "Interroga le fonti audio configurate"
+      "why": "Connect to configured audio providers and authorized media endpoints."
     },
     {
       "name": "webview.auth",
-      "why": "Apre la verifica richiesta dal server per ogni fonte"
+      "why": "Open provider verification only when required."
     },
     {
       "name": "storage",
-      "why": "Conserva sessioni, abbinamenti e stato dei pool"
+      "why": "Remember sessions, cache, and account-pool status."
     },
     {
       "name": "settings.page",
-      "why": "Configura motori, account e diagnostica"
+      "why": "Configure audio engines, personal pools, and logging."
     },
     {
       "name": "notify",
-      "why": "Mostra l'esito delle verifiche e gli avvisi"
+      "why": "Display verification results and relevant notices."
     },
     {
       "name": "webview.page",
-      "why": "Apre il Vault degli account e lo stato delle fonti"
+      "why": "Open the private Vault account manager."
     },
     {
       "name": "playback.events",
-      "why": "Rinvia le verifiche Aura fino alla pausa dell’ascolto"
+      "why": "Schedule account verification around playback."
     }
   ],
   "media": {
     "hosts": [
+      "*.akamaized.net",
       "*.audio.tidal.com",
       "*.jiosaavn.com",
       "*.music.126.net",
       "*.music.163.com",
       "*.saavncdn.com",
       "*.ultramax.vip",
+      "api.arcod.xyz",
+      "arcod.xyz",
       "music-api.gdstudio.xyz",
       "music.163.com",
       "streaming-qobuz-std.akamaized.net",
-      "eljohnzc-addon.de.deplexo.com",
-      "addon-2.aurix.dpdns.org",
-      "*.akamaized.net"
+      "deezer.rickyaddons.dpdns.org",
+      "bitchord-hires-addon.de.deplexo.com",
+      "*.dzcdn.net"
     ]
   },
   "settings": [
@@ -96,155 +105,169 @@
       "key": "tigroHQ",
       "type": "toggle",
       "label": "🐯 TIGRO · HQ Fast",
-      "description": "FLAC e Hi-Res con ricerca rapida. Modalità predefinita.",
+      "description": "Default ON. Fast FLAC/Hi-Res for everyday listening.",
       "default": true
     },
     {
       "key": "splashWhale",
       "type": "toggle",
       "label": "🐳 WHALE · Rare Rescue",
-      "description": "Complementare a Tigro: prima FLAC/Hi-Res, poi MP3/AAC per brani rari, edit e remix.",
+      "description": "Optional. For rare tracks, edits and remixes: HQ first, then lossy rescue.",
       "default": false
     },
     {
       "key": "colibriEco",
       "type": "toggle",
       "label": "🐦 COLIBRÌ · Eco Stream",
-      "description": "Modalità alternativa MP3 a basso consumo dati. Prevale su Tigro e Whale.",
+      "description": "Optional. MP3/AAC to reduce mobile data use.",
       "default": false
     },
     {
       "key": "autoVerify",
       "type": "toggle",
-      "label": "🔐 SESSIONI AURA · Recupero automatico",
-      "description": "Verifica le sessioni all’avvio, intervenendo solo se necessario.",
+      "label": "🔐 Automatic Session Verification",
+      "description": "Restore provider sessions automatically when possible.",
       "default": true
     },
     {
       "key": "verify_all",
       "type": "button",
-      "label": "🔐 SESSIONI AURA · Verifica fonti",
-      "description": "Controlla manualmente lo stato delle sessioni Aura."
+      "label": "🔐 Check Sessions",
+      "description": "Check provider session status manually."
     },
     {
       "key": "forceVerify",
       "type": "button",
-      "label": "🔐 SESSIONI AURA · Verifica forzata",
-      "description": "Riprova la verifica delle sessioni Aura."
+      "label": "🔐 Recheck Sessions",
+      "description": "Retry provider session verification."
+    },
+    {
+      "key": "soleLegacyCore",
+      "type": "toggle",
+      "label": "🌞 SOLE · Legacy Core (Maintenance)",
+      "description": "OFF: use Nuvola. ON: bypass parallel host races and use the classic sequential coordinator. Applies to the next audio request.",
+      "default": false
     },
     {
       "key": "clearCache",
       "type": "button",
-      "label": "🛠️ MANUTENZIONE · Svuota cache",
-      "description": "Cancella cache e sospensioni temporanee, non gli account."
+      "label": "🛠️ Clear Cache & Cooldowns",
+      "description": "Clear matching caches and provider cooldowns; keep saved accounts. Use after expired stream links."
     },
     {
       "key": "forget",
       "type": "button",
-      "label": "🛠️ MANUTENZIONE · Ripristina sessioni",
-      "description": "Cancella le sessioni Aura per consentire una nuova verifica; non elimina gli account."
+      "label": "🛠️ Reset Provider Sessions",
+      "description": "Clear provider sessions for fresh verification; personal account settings remain saved."
     },
     {
       "key": "qobuzPersonalToken1",
       "type": "secret",
-      "label": "🔐 Qobuz 1 · Token",
-      "description": "Token personale. Per consultarlo apri il Vault."
+      "label": "🔐 Personal Qobuz Pool · Slot 1 · Access Token",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppId1",
       "type": "secret",
-      "label": "🔐 Qobuz 1 · App ID",
-      "description": "ID dell’app Qobuz personale."
+      "label": "🔐 Personal Qobuz Pool · Slot 1 · App ID",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppSecret1",
       "type": "secret",
-      "label": "🔐 Qobuz 1 · App Secret",
-      "description": "Credenziale privata. Non condividerla."
+      "label": "🔐 Personal Qobuz Pool · Slot 1 · App Secret",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalToken2",
       "type": "secret",
-      "label": "🔐 Qobuz 2 · Token",
-      "description": "Token personale. Per consultarlo apri il Vault."
+      "label": "🔐 Personal Qobuz Pool · Slot 2 · Access Token",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppId2",
       "type": "secret",
-      "label": "🔐 Qobuz 2 · App ID",
-      "description": "ID dell’app Qobuz personale."
+      "label": "🔐 Personal Qobuz Pool · Slot 2 · App ID",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppSecret2",
       "type": "secret",
-      "label": "🔐 Qobuz 2 · App Secret",
-      "description": "Credenziale privata. Non condividerla."
+      "label": "🔐 Personal Qobuz Pool · Slot 2 · App Secret",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalToken3",
       "type": "secret",
-      "label": "🔐 Qobuz 3 · Token",
-      "description": "Token personale. Per consultarlo apri il Vault."
+      "label": "🔐 Personal Qobuz Pool · Slot 3 · Access Token",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppId3",
       "type": "secret",
-      "label": "🔐 Qobuz 3 · App ID",
-      "description": "ID dell’app Qobuz personale."
+      "label": "🔐 Personal Qobuz Pool · Slot 3 · App ID",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "qobuzPersonalAppSecret3",
       "type": "secret",
-      "label": "🔐 Qobuz 3 · App Secret",
-      "description": "Credenziale privata. Non condividerla."
+      "label": "🔐 Personal Qobuz Pool · Slot 3 · App Secret",
+      "description": "Private account credential. View it in the Vault; never share it."
     },
     {
       "key": "eclipseUrl",
       "type": "secret",
-      "label": "🔐 Deezer 1 · Manifest URL",
-      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+      "label": "🔐 Personal Deezer Pool · Slot 1 · Manifest URL",
+      "description": "Your private HTTPS Eclipse manifest link (not your ARL cookie). Keep it confidential."
     },
     {
       "key": "eclipseUrl2",
       "type": "secret",
-      "label": "🔐 Deezer 2 · Manifest URL",
-      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+      "label": "🔐 Personal Deezer Pool · Slot 2 · Manifest URL",
+      "description": "Your private HTTPS Eclipse manifest link (not your ARL cookie). Keep it confidential."
     },
     {
       "key": "eclipseUrl3",
       "type": "secret",
-      "label": "🔐 Deezer 3 · Manifest URL",
-      "description": "Link HTTPS personale Deezer Eclipse. Istruzioni nel README."
+      "label": "🔐 Personal Deezer Pool · Slot 3 · Manifest URL",
+      "description": "Your private HTTPS Eclipse manifest link (not your ARL cookie). Keep it confidential."
     },
     {
       "key": "devLogs",
       "type": "toggle",
-      "label": "🧪 DIAGNOSTICA · Log Dev avanzati",
-      "description": "Mostra dettagli di ricerca e risoluzione solo quando attivato.",
+      "label": "📋 Advanced Logging",
+      "description": "Enable detailed diagnostic logs. OFF by default; MySpoti basic logs remain available.",
       "default": false
-    },
-    {
-      "key": "zooSourceStatus",
-      "type": "button",
-      "label": "🧪 DIAGNOSTICA · Riepilogo fonti",
-      "description": "Mostra lo stato delle fonti senza rivelare credenziali."
     },
     {
       "key": "resetQobuzCooldown",
       "type": "button",
-      "label": "🛠️ MANUTENZIONE · Azzera attese Qobuz",
-      "description": "Rimuove le attese temporanee degli account Qobuz senza cancellarli."
+      "label": "🛠️ Reset Qobuz Cooldowns",
+      "description": "Clear temporary Qobuz account waiting periods without deleting credentials."
+    },
+    {
+      "key": "mauroTidalPool433",
+      "type": "secret",
+      "label": "🔐 Tidal · Refresh Pool",
+      "description": "Single Tidal pool setting for authorized catalog access. Inspect in Vault.",
+      "default": "eyJraWQiOiJoUzFKYTdVMCIsImFsZyI6IkVTNTEyIn0.eyJ0eXBlIjoibzJfcmVmcmVzaCIsInVpZCI6MjA5NjYxNjU5LCJzY29wZSI6InJfdXNyIHdfdXNyIiwiY2lkIjoxMzMxOSwic1ZlciI6MCwiZ1ZlciI6MCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnRpZGFsLmNvbS92MSJ9.AZGXuEM5TPpvtGym0CtLnxW6mNqLlPn8v9RCAposr033ZGktC8Rh7lGwB8ZRhMHMApzKtxF1f-XVu9YpPw2im0cjAIwxAiitVhG1YVS0qr-pVvhyZKu3WrpUYMeUCN1g2xGbQrE5MQ4qZbyGGypIZMEhplFcobh9r0lXlv9WbRAYAncB,eyJraWQiOiJoUzFKYTdVMCIsImFsZyI6IkVTNTEyIn0.eyJ0eXBlIjoibzJfcmVmcmVzaCIsInVpZCI6MjA5NjczODA5LCJzY29wZSI6InJfdXNyIHdfdXNyIiwiY2lkIjoxMzMxOSwic1ZlciI6MCwiZ1ZlciI6MCwiaXNzIjoiaHR0cHM6Ly9hdXRoLnRpZGFsLmNvbS92MSJ9.ADmY_vLxgjvaXF8mJKHdlfMmvt9SDye9-WOfsbXEPgoQB9fLP86jKkdTqnsJlO7UDvTR5CMIhKv_wFoWfmZJ1FgUABikqjQoAiNl-l0n7UuEqY_riwlnZvjSmOrpZ6L_0W-eGSbEDJngB9UDun0JYaNywPE4OAnp5mLaj3HL1nN92A8e"
+    },
+    {
+      "key": "mauroTidalProbe433",
+      "type": "button",
+      "label": "🛠️ Test Tidal Pool",
+      "description": "Check refresh pool status without logging credentials."
     }
   ],
   "welcome": {
-    "message": "Benvenuto in Aura Eclipse 4.5.0 · Nuvola! Tre motori audio, coordinamento automatico e ricerca ottimizzata.",
+    "message": "🐯🐳🐦☁️ Welcome to Aura Eclipse · Nuvola!\nThree audio engines. One smart coordinator.",
     "steps": [
-      "🐯 Tigro: FLAC e Hi-Res, attivo di default.",
-      "🐳 Whale: attivalo insieme a Tigro per recuperare brani rari; prima HQ, poi MP3/AAC.",
-      "🐦 Colibrì: modalità alternativa MP3 per risparmiare dati; prevale sugli altri motori.",
-      "🔐 Gestisci i tuoi account nel Vault · Account Manager.",
-      "🧪 Log Dev avanzati attivabili nelle Impostazioni; disattivati di default."
+      "🐯 TIGRO is ON by default for fast FLAC/Hi-Res. You do not need all 3 engines enabled.",
+      "🐳 Enable WHALE for rare tracks, edits and remixes: HQ first, then MP3/AAC.",
+      "🐦 Enable COLIBRÌ for lower-data MP3/AAC playback.",
+      "☁️ NUVOLA is built in. If needed, enable 🌞 SOLE in Maintenance for the legacy coordinator.",
+      "🔐 Manage accounts in Vault; automatic session checks are enabled. Advanced logs are OFF."
     ]
   },
-  "changelog": "4.5.0 · Nuvola ☁️\n• Nuova icona e interfaccia rinnovata.\n• ☁️ Nuvola: meno richieste duplicate e riutilizzo dei risultati.\n• 🐯 Tigro: ricerca rapida FLAC e Hi-Res.\n• 🐳 Whale Guardian: ricerca HQ, poi recupero MP3/AAC per brani rari, edit e remix.\n• 🐦 Colibrì: percorso MP3 autonomo per risparmiare dati.\n• Sessioni Aura: ripristinata la verifica automatica all'avvio, silenziosa quando possibile.\n• Log base essenziali; Log Dev avanzato opzionale e disattivato di default."
+  "changelog": "What's New · 6.0.7 ☁️\n🚀 Faster audio discovery with NUVOLA coordination.\n🐯 TIGRO: optimized FLAC/Hi-Res searches.\n🐳 WHALE: refined HQ-to-MP3/AAC rescue for rare tracks.\n🐦 COLIBRÌ: improved compressed-audio fallback order.\n🌊 Tidal: multi-token refresh pool and automatic session checks.\n🔐 Vault: account management and diagnostics.\n⚙️ Refined source fallback, timeouts and reliability.\n📖 Setup, engine priorities and Tidal pool guide: README on GitHub."
 }

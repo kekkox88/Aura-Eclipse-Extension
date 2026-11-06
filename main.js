@@ -1,14 +1,11 @@
 
-/* BUILD319 EXPERIMENTAL RELAYS — opt-in, isolated from original engines. */
-/* NUVOLA 1.5.0 BUILD346: DASH-only experimental relays; retired file-based relay adapters removed. */
+/* CUMULONEMBO396: Arcod HQ relay only; legacy experimental DASH adapters retired. */
 var AURA_RELAY_319 = (function () {
   var tigroMatch=null;
   var sources = [
-    {key:'eljohnzc',base:'https://eljohnzc-addon.de.deplexo.com/59efe06a96',kind:'dash',qualities:['hires','lossless']},
-    {key:'aurix',base:'https://addon-2.aurix.dpdns.org/free_rLnRPnC6oZF5gvAx',kind:'dash',qualities:['hi_res','lossless']}
+    {key:'arcod',base:'https://arcod.xyz',kind:'arcod',qualities:['27','7']}
   ];
   var bad = {};
-  var relayFailures = {}; // DUAL342: per-source 503 streak; no cross-source cooldown
   function norm(s) { return String(s||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[^a-z0-9]+/g,' ').trim(); }
   function read(url,ms,log,phase,source) {
     var started=Date.now(), r=null;
@@ -16,11 +13,6 @@ var AURA_RELAY_319 = (function () {
       r=myspoti.http.get(url,{timeout:ms});
       var status=r&&Number(r.status||r.statusCode||0)||0;
       if(!r||!r.ok){
-        if((source==='eljohnzc'||source==='aurix')&&phase==='search'&&status===503){
-          relayFailures[source]=(relayFailures[source]||0)+1;
-          if(log)log('[DIAG343] '+source+' search-503 streak='+relayFailures[source]+' retry-after='+String((r.headers&&(r.headers['retry-after']||r.headers['Retry-After']))||'not-provided').slice(0,25));
-          if(relayFailures[source]>=2){bad[source]=Date.now()+20000;if(log)log('[DUAL342] '+source+' 503-circuit-open 20s');}
-        }
         if(log)log('[RELAY335] '+source+' '+phase+' HTTP='+(status||'0')+' esito='+(r?'non-ok':'risposta-assente')+' ms='+(Date.now()-started));return null;}
       var v=typeof r.json==='function'?r.json():r.body;
       if(typeof v==='string'){
@@ -28,37 +20,32 @@ var AURA_RELAY_319 = (function () {
         try{v=JSON.parse(v);}catch(parseError){if(log)log('[RELAY335] '+source+' '+phase+' JSON-non-valido HTTP='+status);return null;}
       }
       if(!v||typeof v!=='object'){if(log)log('[RELAY335] '+source+' '+phase+' payload-non-oggetto HTTP='+status);return null;}
-      if(phase==='search'&&(source==='eljohnzc'||source==='aurix'))relayFailures[source]=0;
       if(log)log('[RELAY335] '+source+' '+phase+' HTTP='+(status||'ok')+' ms='+(Date.now()-started));
       return v;
-    }catch(e){if(log)log('[RELAY335] '+source+' '+phase+' eccezione='+String(e&&e.name||'errore').slice(0,35)+' ms='+(Date.now()-started));return null;}
+    }catch(e){if(log)log('[RELAY388] '+source+' '+phase+' eccezione='+String(e&&e.name||'errore').slice(0,35)+' tipo='+(/timeout|timed.?out/i.test(String(e&&e.message||''))?'timeout':/network|fetch|connection|dns/i.test(String(e&&e.message||''))?'rete':'altro')+' ms='+(Date.now()-started));return null;}
   }
-  function textGet(url,ms) {try {var r=myspoti.http.get(url,{timeout:ms});return r&&r.ok?String(r.body||''):'';}catch(e){return '';} }
   function urlOk(url) { return /^https:\/\/[a-z0-9.-]+(?:\/|$)/i.test(String(url||'')); }
   function hostAllowed(url) { var m=/^https:\/\/([^/:?#]+)/i.exec(url||''); if(!m)return false; var h=m[1].toLowerCase(); return h!=='localhost'&&!/^(?:127\.|10\.|192\.168\.|169\.254\.|0\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/.test(h)&&h.indexOf('..')<0; }
-  function candidates(b) {var d=b&&b.data||b||{};var t=d.tracks||d.items||[];if(t&&t.items)t=t.items;return Array.isArray(t)?t:[];}
+  function candidates(b) {var d=b&&b.data||b||{};var t=d.tracks||d.items||d.results||[];if(t&&t.items)t=t.items;return Array.isArray(t)?t:[];}
   function artist(t) {var a=t.artist||t.performer||t.artistNames||'';return typeof a==='string'?a:Array.isArray(a)?a.join(', '):a&&a.name||'';}
   function choose(items,track) {var want=norm(track.title),a=norm(track.artist),isrc=String(track.isrc||'').toLowerCase();for(var i=0;i<items.length;i++){var t=items[i];if(!t||!t.id)continue;var title=norm(t.title),who=norm(artist(t));var sameIsrc=isrc&&String(t.isrc||'').toLowerCase()===isrc;if(!sameIsrc&&(title!==want||!a||who!==a))continue;var dur=Number(t.duration||0),wanted=Number(track.durationMs||0)/1000;if(dur>5400)dur/=1000;if(!sameIsrc&&dur&&wanted&&Math.abs(dur-wanted)>6)continue;return t;}return null;}
-  function manifestOk(xml){return /<MPD[\s\/>]/i.test(xml)&&/<SegmentTemplate[\s\/>]/i.test(xml)&&/<SegmentTimeline[\s\/>]/i.test(xml)&&!/ContentProtection/i.test(xml);}
   function resolve(track,deadline,enabled,log) {
     if(!track||!track.title||!track.artist){
       log('[RELAY332] metadata insufficienti: title='+Boolean(track&&track.title)+' artist='+Boolean(track&&track.artist));
       return null;
     }
-    var selected=[]; // Public build: experimental relays disabled
+    var selected=sources.filter(function(s){return enabled('relay319_'+s.key,false);});
     if(!selected.length){log('[RELAY330] nessun relay sperimentale abilitato; controllare toggle');return null;}
     log('[RELAY330] selezionati='+selected.map(function(s){return s.key;}).join(','));
-    if(selected.some(function(s){return s.key==='eljohnzc';})&&selected.some(function(s){return s.key==='aurix';}))log('[DUAL342] priorita=eljohnzc>aurix; matcher-condiviso; toggle-indipendenti');
     for(var i=0;i<sources.length;i++){
       var s=sources[i];
       if(!enabled('relay319_'+s.key,false))continue;
       var remaining=Number(bad[s.key]||0)-Date.now();
       if(remaining>0){log('[DUAL342] '+s.key+' cooldown attivo '+Math.ceil(remaining/1000)+'s; prossimo relay');continue;}
       if(deadline-Date.now()<2300){log('[RELAY332] '+s.key+' tempo insufficiente per ricerca');break;}
-      if(s.key==='aurix')log('[NUVOLA340] aurix isolabile; matcher=Tigro; retry-ricerca=OFF; fallback-match=solo-approvati');
       log('[RELAY329] '+s.key+' ricerca');
-      var query=encodeURIComponent(track.title+' '+track.artist),path=s.kind==='dash'?'/search?q=':'/api/search?q=';
-      var result=read(s.base+path+query,Math.min(2300,deadline-Date.now()-700),log,'search',s.key);
+      var query=encodeURIComponent(track.title+' '+track.artist),path='/api/search?q=';
+      var result=read(s.base+path+query+'&limit=20',Math.min(2300,deadline-Date.now()-700),log,'search',s.key);
       var items=candidates(result);
       var hit=null, ranked=[];
       if(tigroMatch){
@@ -83,8 +70,7 @@ var AURA_RELAY_319 = (function () {
         hit=ranked.length?ranked[0].hit:null;
         log('[RELAY333] '+s.key+' candidati='+items.length+' accettati='+ranked.length+' matcher=Tigro'+(hit?' score='+ranked[0].score:''));
       }else {log('[RELAY334] matcher Tigro non inizializzato: fallback matching conservativo');hit=choose(items,track);}
-      if(!result)log('[RELAY335] '+s.key+' ricerca non utilizzabile; dettagli nella diagnostica precedente');
-      if(s.key==='aurix')log('[NUVOLA340] aurix search='+(!result?'errore-o-risposta-invalida':!items.length?'zero-candidati':!hit?'nessun-match-sicuro':'match-valido')+' candidati='+items.length+' accettati='+ranked.length);
+      if(!result)log('[RELAY388] '+s.key+' ricerca non utilizzabile: controllare HTTP/timeout/rete nelle righe precedenti');
       if(!hit){log('[RELAY319] '+s.key+' nessun match sicuro');continue;}
       // BUILD336: retry only independently Tigro-approved candidates, never raw search results.
       var streamCandidates=ranked.length?ranked.map(function(r){return r.hit;}):[hit];
@@ -98,26 +84,16 @@ var AURA_RELAY_319 = (function () {
       for(var q=0;q<s.qualities.length;q++){
         if(deadline-Date.now()<1700)break;
         var quality=s.qualities[q];
-        // NUVOLA341: Aurix expects the prefixed Tidal ID first; Eljohnzc uses the numeric ID first.
-        // Retry the alternate representation only when the primary request has no usable stream URL.
-        var ids=s.key==='aurix'?['tidal:'+id,id]:[id,'tidal:'+id];
+        var ids=[id];
         var reply=null, replyId='', dataProbe={};
         for(var idTry=0;idTry<ids.length;idTry++){
           if(deadline-Date.now()<1200)break;
           var trialId=ids[idTry];
-          var path2='/stream/'+encodeURIComponent(trialId)+'?quality='+quality;
+          var path2='/api/player/stream/'+encodeURIComponent(trialId)+'?quality='+quality;
           reply=read(s.base+path2,Math.min(2500,Math.max(500,deadline-Date.now()-600)),log,'stream-'+quality+(idTry?'-id-alt':''),s.key);
           dataProbe=reply&&reply.data||reply||{};
           var candidateUrl=String(dataProbe.url||dataProbe.streamUrl||dataProbe.downloadUrl||'');
-          if(s.kind==='dash'&&s.key==='aurix')log('[NUVOLA341] aurix id-mode='+(trialId.indexOf('tidal:')===0?'prefixed':'plain')+' response='+(!reply?'missing':candidateUrl?'url-present':'url-missing')+' fields='+Object.keys(dataProbe).filter(function(k){return /^(url|streamUrl|downloadUrl|manifest|mimeType|codec|error|message|status)$/i.test(k);}).join(','));
           if(candidateUrl){replyId=trialId;break;}
-          // FAST347: Aurix returned valid JSON but no stream URL. This is not
-          // evidence that the alternate ID encoding will work: save budget
-          // for lossless and the next Tigro-approved candidate.
-          if(s.key==='aurix'&&reply){
-            log('[FAST347] aurix no-url quality='+quality+' skip-id-alt=true next-quality=true');
-            break;
-          }
           // DIAG343: an exception/timeout is not evidence that another ID encoding helps.
           // Save the remaining time for an approved alternate candidate or next source.
           if(!reply){if(log)log('[DIAG343] '+s.key+' stream-no-response quality='+quality+' id-mode='+(trialId.indexOf('tidal:')===0?'prefixed':'plain')+' skip-id-alt=true');break;}
@@ -125,11 +101,11 @@ var AURA_RELAY_319 = (function () {
         var data=reply&&reply.data||reply||{},url=String(data.url||data.streamUrl||data.downloadUrl||'');
         if(!urlOk(url)||!hostAllowed(url)||data.encrypted===true){var reason=data.encrypted===true?'encrypted':!url?'url-missing':!urlOk(url)?'url-invalid':'host-rejected';log('[RELAY335] '+s.key+' stream rejected reason='+reason+' quality='+quality+' id-presente='+Boolean(id));continue;}
         {
-          if(myspoti.features&&myspoti.features.indexOf('audio.manifest')<0){log('[RELAY319] '+s.key+' DASH non supportato');continue;}
-          var xml=textGet(url,Math.min(2500,Math.max(700,deadline-Date.now()-500)));
-          if(!manifestOk(xml)){log('[RELAY319] '+s.key+' MPD assente/non utilizzabile');continue;} if(!myspoti.util||typeof myspoti.util.base64Encode!=='function'){log('[RELAY319] '+s.key+' base64 non disponibile');continue;}
-          log('[RELAY319] '+s.key+' manifest DASH valido, FLAC dichiarato');
-          return {manifest:myspoti.util.base64Encode(xml),mimeType:'audio/mp4',codec:'flac',provider:'Tidal '+s.key,format:'dash-flac',bitDepth:Number(data.bitDepth)||0,sampleRate:Number(data.sampleRate)||0};
+          // Qobuz relay: only direct HTTPS FLAC, no DASH and no preview or encrypted files.
+          if(data.sample===true||data.preview===true||data.encrypted===true){log('[ARCOD387] '+s.key+' preview/encrypted rejected');continue;}
+          if(/\.mpd(?:[?#]|$)/i.test(url)){log('[ARCOD387] '+s.key+' unexpected DASH rejected');continue;}
+          log('[ARCOD387] '+s.key+' direct FLAC URL accepted; playback validation pending');
+          return {url:url,provider:'Qobuz '+s.key,format:'flac',bitDepth:Number(data.bitDepth)||0,sampleRate:Number(data.sampleRate)||0};
         }
       }
       } // end candidate retry: only matching-approved alternatives
@@ -138,15 +114,190 @@ var AURA_RELAY_319 = (function () {
     }
     return null;
   }
-  return {resolve:resolve,sources:sources,manifestOk:manifestOk,choose:choose,hostAllowed:hostAllowed,setTigroMatcher:function(m){tigroMatch=m;}};
+  return {resolve:resolve,sources:sources,choose:choose,hostAllowed:hostAllowed,setTigroMatcher:function(m){tigroMatch=m;}};
 })();
 
 
+
+/* MAURO399: isolated FLAC/MP3 rescue and Tigro scoring. */
+var AURA_MAURO398=(function(){
+ var endpoints={deezer:'https://deezer.rickyaddons.dpdns.org/u/2184f06e057c01b3e8a06eb5a3d1',bitchord:'https://bitchord-hires-addon.de.deplexo.com'};
+ var blocked={};
+ // NUVOLA51: persistent transient-health circuit breaker, shared across
+ // independent host race workers. No credentials, URLs or song metadata stored.
+ var healthStoreKey='nuvola51_relay_health';
+ function healthRead(){try{var v=myspoti.storage.get(healthStoreKey);return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+ function healthCheck(kind){var all=healthRead(),v=all[kind];return v&&Number(v.until)>Date.now();}
+ function healthEvent(kind,type){
+   var all=healthRead(),now=Date.now(),v=all[kind]||{n:0,last:0,until:0};
+   if(type==='ok'){if(!v.n&&!v.until)return;v={n:0,last:now,until:0};}
+   else if(type==='busy'){v={n:0,last:now,until:now+60000};}
+   else if(type==='gateway'){v={n:0,last:now,until:now+90000};}
+   else if(type==='timeout'){
+     v.n=now-Number(v.last)<120000?(Number(v.n)||0)+1:1;
+     v.last=now;
+     if(v.n>=2){v.until=now+45000;v.n=0;}
+   }else return;
+   all[kind]=v;
+   try{myspoti.storage.set(healthStoreKey,all);}catch(e){}
+ }
+ var deezerIdCache={}; // NUVOLA51: positive catalog ID from parallel fallback batch.
+ var qobuzIdCache={}; // LABOON408: safe catalog IDs only, never tokens or signed URLs.
+ var tigro=null;
+ function setMatcher(m){tigro=m;}
+ var labKeys=['lab403_bc_lossless','lab403_bc_high','lab403_bc_low','lab403_ricky_flac','lab403_ricky_320','lab403_ricky_128'];
+ function setting(k){try{return myspoti.settings.get(k);}catch(e){return null;}}
+ function on(k){var v=setting(k);return v===true||String(v)==='true';}
+ function enabled(k){if(k==='rickyQuality')return String(setting('mauro402_rickyQuality')||'320');return on('mauro398_'+k);}
+ function selected(){var arr=[];for(var i=0;i<labKeys.length;i++)if(on(labKeys[i]))arr.push(labKeys[i]);return arr;}
+ function active(){return selected().length>0;}
+ function mode(){var a=selected();return a.length===1?a[0]:a.length?'invalid':'';}
+ function say(s){try{AURA_DEV_WRITE('[GRANDINE405] '+s);}catch(e){}}
+ function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();}
+ function json(url,kind,ms){
+   if(Date.now()<(blocked[kind]||0)||healthCheck(kind)){say(kind+' cooldown smart attivo');return null;}
+   var r=null;
+   try{r=myspoti.http.get(url,{timeout:ms||3500,headers:{Accept:'application/json'}});}catch(e){healthEvent(kind,'timeout');say(kind+' timeout/rete: health aggiornato');return null;}
+   var status=Number(r&&r.status||0);
+   if(status>=500){healthEvent(kind,'gateway');blocked[kind]=Date.now()+90000;say(kind+' HTTP '+status+' cooldown=90s');return null;}
+   if(status===429){healthEvent(kind,'busy');blocked[kind]=Date.now()+60000;say(kind+' HTTP 429 cooldown=60s');return null;}
+   if(!r||!r.ok){if(!r||status===0)healthEvent(kind,'timeout');say(kind+' HTTP '+status+' fallback=OFF');return null;}
+   healthEvent(kind,'ok');
+   try{return typeof r.json==='function'?r.json():(typeof r.body==='object'?r.body:JSON.parse(r.body||'{}'));}catch(e){say(kind+' JSON non valido');return null;}
+ }
+ function pick(items,track,which){
+   if(!Array.isArray(items))return null;
+   var best=null,score=-1,want=norm(track.title),artist=norm(track.artist),dur=Number(track.durationMs||0)/1000,accepted=0;
+   for(var i=0;i<items.length&&i<25;i++){
+     var c=items[i];if(!c||!c.id)continue;
+     var title=norm(c.title||c.name),who=norm(typeof c.artist==='string'?c.artist:(c.artist&&c.artist.name)||c.artist_name);
+     if(which==='bitchord'){
+       // MAURO401: catalogo Qobuz -> ID; selezione indipendente dal matcher Tigro.
+       var qbTitle=norm(c.title||c.name||'');
+       var qbArtist=norm(c.artist||'');
+       var qbIsrc=String(c.isrc||'').toLowerCase(),wantIsrc=String(track.isrc||'').toLowerCase();
+       var qbDuration=Number(c.duration||0),targetDuration=Number(track.durationMs||0)/1000;
+       var durationOk=!qbDuration||!targetDuration||Math.abs(qbDuration-targetDuration)<=6;
+       var titleOk=qbTitle===want||norm(c.title||'')===want;
+       var artistOk=qbArtist===artist;
+       var isrcOk=qbIsrc&&wantIsrc&&qbIsrc===wantIsrc;
+       if(!durationOk||(!isrcOk&&(!titleOk||!artistOk)))continue;
+       accepted++;
+       var qbScore=(isrcOk?200:100)+(titleOk?30:0)+(artistOk?20:0)-(qbDuration&&targetDuration?Math.abs(qbDuration-targetDuration):0);
+       if(qbScore>score){best=c;score=qbScore;}continue;
+     }
+     if(title!==want||(!artist||who!==artist))continue;
+     var d=Number(c.duration||0);if(d>5400)d/=1000;
+     if(d&&dur&&Math.abs(d-dur)>6)continue;
+     var isrc=String(c.isrc||'').toLowerCase(),target=String(track.isrc||'').toLowerCase();
+     if(isrc&&target&&isrc!==target)continue;
+     var points=100+(isrc&&target?100:0)-(d&&dur?Math.abs(d-dur):0);
+     if(points>score){best=c;score=points;}
+   }
+   if(which==='bitchord')say('bitchord candidati='+items.length+' accettati='+accepted+' matcher=Qobuz');
+   return best;
+ }
+ // MAURO402: direct port of Mauro main-3.js qobuzAnonSearch + qobuzSearchTracks.
+ // Only the transport is adapted to myspoti.http; original Qobuz ID, version,
+ // performer, album, duration, ISRC and quality fields are preserved.
+ function qobuzAnonSearch(query,capMs){
+   var app='';for(var i=1;i<=3;i++){try{app=tigroVaultSetting('qobuzPersonalAppId'+i)||'';}catch(e){}if(/^\d+$/.test(String(app)))break;app='';}
+   if(!app)app='312369995'; // Mauro's public catalog app ID; never an account token.
+   return json('https://www.qobuz.com/api.json/0.2/track/search?app_id='+encodeURIComponent(app)+'&query='+encodeURIComponent(query)+'&limit=20','qobuz-catalog',capMs||5000);
+ }
+ function qobuzSearchTracks(query){
+   if(!String(query||'').trim())return [];
+   var body=qobuzAnonSearch(query,5000),items=body&&body.tracks?body.tracks.items:null;
+   if(!items||!items.length)return [];
+   var out=[];
+   for(var i=0;i<items.length;i++){
+     var t=items[i];if(!t||t.id===undefined)continue;
+     var title=String(t.title==null?'':t.title);
+     if(t.version)title+=' ('+t.version+')';
+     var artist=t.performer&&t.performer.name?t.performer.name:(t.artist&&t.artist.name?t.artist.name:'');
+     var album=t.album&&t.album.title?t.album.title:'';
+     var depth=t.maximum_bit_depth||0,rate=t.maximum_sampling_rate||0;
+     out.push({id:'qz:'+t.id,title:title.trim(),artist:artist,album:album,duration:t.duration,isrc:t.isrc||'',audioQuality:depth?(depth+'-bit / '+rate+' kHz'):'',hires:!!t.hires,source:'Qobuz'});
+   }
+   return out;
+ }
+ function getId(track,which){
+   var query=String(track.title||'')+' '+String(track.artist||'');
+   if(which==='deezer'){
+     var ck=norm(track.title)+'|'+norm(track.artist)+'|'+String(track.isrc||'')+'|'+String(track.durationMs||'');
+     var prev=deezerIdCache[ck];if(prev&&prev.until>Date.now())return prev.value;
+     var d=json('https://api.deezer.com/search?q='+encodeURIComponent(query)+'&limit=15','deezer-catalog',3200);
+     say('deezer catalogo candidati='+((d&&d.data&&d.data.length)||0));
+     var picked=pick(d&&d.data,track,'deezer');if(picked)deezerIdCache[ck]={value:picked,until:Date.now()+45000};
+     return picked;
+   }
+   // LABOON408: reuse a positively matched Qobuz catalog ID across BitChord quality attempts.
+   // Negative results are deliberately not cached; network failures are not absence.
+   var qKey=norm(track.title)+'|'+norm(track.artist)+'|'+String(track.isrc||'')+'|'+String(track.durationMs||'');
+   var prior=qobuzIdCache[qKey];
+   if(prior&&prior.until>Date.now()){say('bitchord catalog ID CACHE_HIT');return {id:prior.id,title:prior.title};}
+   if(prior)delete qobuzIdCache[qKey];
+   var variants=[query,String(track.artist||'')+' '+String(track.title||'')],seen={},all=[];
+   for(var qi=0;qi<variants.length;qi++){
+     if(seen[norm(variants[qi])])continue;seen[norm(variants[qi])]=true;
+     var candidates=qobuzSearchTracks(variants[qi]);
+     say('bitchord qobuzAnonSearch query='+String(qi+1)+' candidati='+candidates.length);
+     for(var j=0;j<candidates.length;j++)if(!seen[candidates[j].id]){seen[candidates[j].id]=true;all.push(candidates[j]);}
+     var best=pick(all,track,'bitchord');if(best){
+       var hit={id:String(best.id).replace(/^qz:/,''),title:best.title};
+       qobuzIdCache[qKey]={id:hit.id,title:hit.title,until:Date.now()+45000};
+       if(Object.keys(qobuzIdCache).length>40)qobuzIdCache={};
+       return hit;
+     }
+   }
+   return null;
+ }
+ function stream(which,id,quality){
+   var path=endpoints[which]+'/stream/'+encodeURIComponent(String(id))+'?quality='+encodeURIComponent(quality);
+   var data=json(path,which+'-'+quality,3900);if(!data)return null;
+   var u=String(data.url||data.streamUrl||'');
+   if(!/^https:\/\/[a-z0-9.-]+(?:[\/:?#]|$)/i.test(u)||/\.mpd(?:[?#]|$)/i.test(u)||data.encrypted===true||data.sample===true||data.preview===true){say(which+' '+quality+' URL/DRM non valido');return null;}
+   var fmt=String(data.format||data.codec||data.mimeType||'').toLowerCase(),pathOnly=u.split(/[?#]/)[0].toLowerCase();
+   var isMp3=fmt==='mp3'||fmt==='audio/mpeg'||/\.mp3$/.test(pathOnly);
+   var isFlac=fmt==='flac'||fmt==='audio/flac'||/\.flac$/.test(pathOnly);
+   var wantMp3=(which==='deezer'&&quality!=='flac')||(which==='bitchord'&&quality==='low');
+   if(wantMp3&&!isMp3){say(which+' quality='+quality+' rifiutato codec='+fmt+' atteso=mp3');return null;}
+   if(!wantMp3&&!isFlac){say(which+' quality='+quality+' rifiutato codec='+fmt+' atteso=flac');return null;}
+   say(which+' quality='+quality+' URL ricevuto codec='+fmt);
+   return {url:u,format:wantMp3?'mp3':'flac',provider:which==='deezer'?'Deezer Rickyaddons':'Qobuz BitChord',bitDepth:Number(data.bitDepth)||0,sampleRate:Number(data.sampleRate)||0};
+ }
+ function resolve(track,normal){
+   if(!track||!track.title||!track.artist)return null;
+   if(normal){var dr=getId(track,'deezer');return dr?stream('deezer',dr.id,'flac'):null;}
+   var key=mode();if(!key)return null;
+   if(key==='invalid'){say('ERRORE: attivare una sola qualità LAB403/404; trovate='+selected().length);return null;}
+   say('isolamento='+key+' altre fonti=OFF');
+   var which=key.indexOf('lab403_bc_')===0?'bitchord':'deezer';
+   var quality=which==='bitchord'?key.slice('lab403_bc_'.length):key.slice('lab403_ricky_'.length);
+   var found=getId(track,which);if(!found){say(which+' nessun match sicuro');return null;}
+   if(which==='bitchord')say('bitchord ID Qobuz selezionato='+String(found.id).replace(/[^0-9]/g,''));
+   return stream(which,found.id,quality);
+ }
+ // SMART407: explicit quality access reuses the already validated lab matchers.
+ function smartQuality(track,key){
+   if(!track||!track.title||!track.artist)return null;
+   var which=key.indexOf('bc_')===0?'bitchord':key.indexOf('ricky_')===0?'deezer':'';
+   if(!which)return null;
+   var quality=key.slice(which==='bitchord'?3:6),candidate=getId(track,which);
+   return candidate?stream(which,candidate.id,quality):null;
+ }
+ function audio(track){var f=resolve(track,false);if(!f)return null;var out={source:f.provider+' · '+f.format.toUpperCase(),expiresInMs:45000};if(f.manifest){out.manifest=f.manifest;out.mimeType=f.mimeType;out.codec=f.codec;}else{out.url=f.url;out.mimeType=f.format==='mp3'?'audio/mpeg':f.format==='aac'?'audio/mp4':'audio/flac';}return out;}
+ function download(track){var f=resolve(track,false);return f&&f.url?[{url:f.url,format:f.format,provider:f.provider,bitDepth:f.bitDepth,sampleRate:f.sampleRate}]:null;}
+ return {active:active,mode:mode,resolve:resolve,smartQuality:smartQuality,audio:audio,download:download,setMatcher:setMatcher};
+
+})();
+
 // Tigro Vault account manager: persistent credential overrides, legacy settings fallback.
-var TIGRO_VAULT_KEYS = ["eclipseUrl","qobuzPersonalToken1","qobuzPersonalAppId1","qobuzPersonalAppSecret1","qobuzPersonalToken2","qobuzPersonalAppId2","qobuzPersonalAppSecret2","qobuzPersonalToken3","qobuzPersonalAppId3","qobuzPersonalAppSecret3","eclipseUrl2","eclipseUrl3"];
+var TIGRO_VAULT_KEYS = ["mauroTidalPool433","eclipseUrl","qobuzPersonalToken1","qobuzPersonalAppId1","qobuzPersonalAppSecret1","qobuzPersonalToken2","qobuzPersonalAppId2","qobuzPersonalAppSecret2","qobuzPersonalToken3","qobuzPersonalAppId3","qobuzPersonalAppSecret3","eclipseUrl2","eclipseUrl3"];
 function tigroVaultSetting(key){
   if(TIGRO_VAULT_KEYS.indexOf(key)<0)return myspoti.settings.get(key);
-  try{var v=myspoti.storage.get('tigro_vault_account_v1_'+key);if(typeof v==='string'&&v.length>0)return v;}catch(e){}
+  try{if(key==='mauroTidalPool433')return myspoti.settings.get(key);
+  var v=myspoti.storage.get('tigro_vault_account_v1_'+key);if(typeof v==='string'&&v.length>0)return v;}catch(e){}
   return myspoti.settings.get(key);
 }
 var AURA_DEV_LOGS = function(){ try { var v=myspoti.settings.get('devLogs'); return v===true || String(v)==='true'; }catch(e){return false;} };
@@ -594,13 +745,13 @@ var CLOUD365_SEARCH = (function () {
     if(hit && now-hit.at<45000){stats.hits++; AURA_DEV_WRITE('[CLOUD365] search-cache=hit saved_http=1');
       return {ok:true,status:200,body:hit.body,json:function(){return JSON.parse(hit.body);}};
     }
-    if(hit) delete entries[k];
+    if(hit){ delete entries[k]; order=order.filter(function(item){return item!==k;}); }
     stats.misses++;
     var r=myspoti.http.get(url,opts);
     if(r && r.ok && Number(r.status||200)===200){
       try {var body=typeof r.body==='string'?r.body:JSON.stringify(r.json());
         if(body && body.length<200000 && !/(?:\"(?:streamUrl|fileUrl|manifest|playbackUrl|signedUrl)\"\s*:)/i.test(body)) {
-          if(!entries[k])order.push(k);
+          if(!entries[k]){ order=order.filter(function(item){return item!==k;});order.push(k); }
           entries[k]={at:now,body:body};stats.stores++;
           while(order.length>80){var old=order.shift();if(entries[old]){delete entries[old];stats.evictions++;}}
           AURA_DEV_WRITE('[CLOUD365] search-cache=store');
@@ -684,6 +835,7 @@ var ACCOUNT_TOKENS = [
   { token: 'JGR6Sd2IYC86-O-jm24JQPZR4-heGMmXjNND6RBo9idJDIBecJZ687c9DQ6D5jAc7IugtidTjegE6hlqdFo_uQ',
     appId: '312369995', appSecret: 'e79f8b9be485692b0e5f9dd895826368', label: 'Qobuz Studio (US)' }
 ];
+
 
 var QOBUZ_APP = { appId: '798273057', appSecret: 'abb21364945c0583309667d13ca3d93a' };
 var PROBE_KEY = 'probe';
@@ -1224,6 +1376,7 @@ function evaluate(rawCandidate, track, hiResBias) {
 }
 
 AURA_RELAY_319.setTigroMatcher({evaluate:evaluate,titleScore:titleScore,artistScore:artistScore,durationDelta:durationDelta,incompatibleEdition:incompatibleEdition});
+AURA_MAURO398.setMatcher({evaluate:evaluate,titleScore:titleScore,artistScore:artistScore,durationDelta:durationDelta,incompatibleEdition:incompatibleEdition});
 
 /* Protezione conservativa contro edizioni chiaramente diverse.
  * Non considera remaster/deluxe come registrazioni diverse e non altera
@@ -1236,12 +1389,14 @@ function editionFlags(title) {
   flags.remix = /\b(?:remix|club mix|dance mix|extended mix)\b/.test(t);
   flags.instrumental = /\b(?:instrumental|karaoke)\b/.test(t);
   flags.demo = /\b(?:demo|rough mix)\b/.test(t);
+  flags.radioEdit = /\b(?:radio edit|radio version)\b/.test(t);
+  flags.extended = /\b(?:extended version|extended edit)\b/.test(t);
   return flags;
 }
 function incompatibleEdition(candidate, track) {
   var a = editionFlags((candidate.title || '') + ' ' + (candidate.version || ''));
   var b = editionFlags(track.title || '');
-  var kinds = ['live','acoustic','remix','instrumental','demo'];
+  var kinds = ['live','acoustic','remix','instrumental','demo','radioEdit','extended'];
   for (var i=0;i<kinds.length;i++) if (a[kinds[i]] !== b[kinds[i]]) return true;
   return false;
 }
@@ -1521,6 +1676,10 @@ function tokenPool() {
     // is used only for ordering, not to replace a user's explicit secret.
     add(mine[u], 'user');
   }
+  // POOL434: additional tested Qobuz account; use existing rotation, preview and cooldown safeguards.
+
+  add({ token: 'U1gsOTxEQZmxO-6jTxkysinHkaFNNld3eJC9WRA0cmvw1HosDl9vfQTGRQEo2zkkcwP9ADc3L20nYNaI0l7E4g',
+    appId: '312369995', appSecret: 'e79f8b9be485692b0e5f9dd895826368', label: 'Qobuz Studio (NZ)' }, 'account');
   for (var a = 0; a < ACCOUNT_TOKENS.length; a++) add(ACCOUNT_TOKENS[a], 'account');
 
   var saved = storedPool();
@@ -1682,6 +1841,15 @@ function tigroPoolEvent(path, entry, position, event, status) {
 // DEV311: instrumented, short-lived, account-scoped cache for confirmed Qobuz previews.
 // In-memory only. Never caches 401, network failures, or valid streams.
 var qobuzPreviewMiss = {}, qobuzPreviewKeys = [];
+var QOBUZ_PREVIEW_SHARED_KEY='nuvola51_preview_negative';
+function previewFingerprint51(v){
+  // Non-reversible short-lived key: no token, URL or account secret in storage.
+  var a=2166136261,b=2246822519,s=String(v);
+  for(var i=0;i<s.length;i++){a=(Math.imul?Math.imul(a^s.charCodeAt(i),16777619):((a^s.charCodeAt(i))*16777619))>>>0;b=(Math.imul?Math.imul(b^s.charCodeAt(i),3266489917):((b^s.charCodeAt(i))*3266489917))>>>0;}
+  return a.toString(36)+'_'+b.toString(36);
+}
+function previewShared51(){try{var v=myspoti.storage.get(QOBUZ_PREVIEW_SHARED_KEY);return v&&typeof v==='object'?v:{};}catch(e){return {};}}
+
 var QOBUZ_PREVIEW_MISS_TTL = 60000, QOBUZ_PREVIEW_MISS_MAX = 96;
 var previewStats311 = {hit:0, miss:0, store:0, expired:0};
 function previewLog311(event, key) {
@@ -1699,6 +1867,11 @@ function previewMissKey(entry, params) {
 function previewMissFresh(key) {
   if (!key) return false;
   if (!Object.prototype.hasOwnProperty.call(qobuzPreviewMiss, key)) {
+    var shared=previewShared51(),stamp=Number(shared[previewFingerprint51(key)]||0);
+    if(stamp && Date.now()-stamp<QOBUZ_PREVIEW_MISS_TTL){
+      qobuzPreviewMiss[key]=stamp;qobuzPreviewKeys.push(key);
+      previewStats311.hit++;previewLog311('HIT',key);return true;
+    }
     previewStats311.miss++; previewLog311('MISS', key); return false;
   }
   if (Date.now() - qobuzPreviewMiss[key] < QOBUZ_PREVIEW_MISS_TTL) {
@@ -1714,6 +1887,11 @@ function previewMissRemember(key) {
   if (!key) return;
   if (!Object.prototype.hasOwnProperty.call(qobuzPreviewMiss, key)) qobuzPreviewKeys.push(key);
   qobuzPreviewMiss[key] = Date.now();
+  var shared=previewShared51(),now=Date.now(),hashed=previewFingerprint51(key);
+  Object.keys(shared).forEach(function(k){if(now-Number(shared[k]||0)>=QOBUZ_PREVIEW_MISS_TTL)delete shared[k];});
+  shared[hashed]=now;
+  var ks=Object.keys(shared);if(ks.length>96){ks.sort(function(a,b){return shared[a]-shared[b];});ks.slice(0,ks.length-96).forEach(function(k){delete shared[k];});}
+  try{myspoti.storage.set(QOBUZ_PREVIEW_SHARED_KEY,shared);}catch(e){}
   previewStats311.store++; previewLog311('STORE', key);
   while (qobuzPreviewKeys.length > QOBUZ_PREVIEW_MISS_MAX) {
     var old = qobuzPreviewKeys.shift();
@@ -2341,7 +2519,7 @@ function setting(k, d) {
 function logsOn() { return AURA_DEV_LOGS(); }
 function qlog(m) { if (logsOn()) log('[QUALITÀ] ' + m); }
 function left() { return leftMs(); }
-function tmo(ms) { return Math.max(1200, Math.min(ms || TIMEOUT, left())); }
+function tmo(ms) { return Math.max(250, Math.min(ms || TIMEOUT, Math.max(250,left()-100))); }
 var tigroDeezerSlot = 1;
 function base() {
   var s = trim(setting(tigroDeezerSlot === 1 ? 'eclipseUrl' : 'eclipseUrl' + tigroDeezerSlot, ''));
@@ -2551,7 +2729,7 @@ function resolve(track, q) {
   if (!f) return { miss: 'nessun abbinamento' };
   var ids = order(f.entry), changed = false, i, res = { miss: 'nessuno stream utilizzabile' };
   for (i = 0; i < ids.length && i < MAX_TRIES; i++) {
-    if (left() < 1500 || (i > 0 && left() < 2500)) { res = { miss: 'tempo esaurito' }; break; }
+    if (left() < 350 || (i > 0 && left() < 850)) { res = { miss: 'tempo esaurito' }; break; }
     var info = getJson(B + '/stream/' + encodeURIComponent(ids[i]) + (q === 'auto' ? '' : '?quality=' + q));
     if (!info || typeof info.url !== 'string' || !/^https?:\/\//i.test(info.url)) {
       log('stream ' + ids[i] + ': nessun url (HTTP ' + lastStatus + ')');
@@ -2647,9 +2825,10 @@ AURA_ECLIPSE_ULTRAMAX = {
        var slotKey=n===1?'eclipseUrl':'eclipseUrl'+n;
        if(!String(tigroVaultSetting(slotKey)||'').trim())continue;
        var remaining=hardDeadline ? hardDeadline-Date.now()-250 : 3000;
-       if(remaining<900){if(AURA_DEV_LOGS())AURA_DEV_WRITE('[DEEZER312] budget esaurito');break;}
+       if(remaining<350){if(AURA_DEV_LOGS())AURA_DEV_WRITE('[DEEZER436] budget esaurito');break;}
        ECL.setSlot(n); ECL.reset();
        startBudget(Math.min(3000,remaining)/1000);
+       if(AURA_DEV_LOGS()) AURA_DEV_WRITE('[DEEZER436] rescue slot='+n+' budget_ms='+Math.floor(remaining));
        try {
          // No ?quality=... parameter: accept the account's first actual stream.
          var result=ECL.audio(track,'auto');
@@ -2668,57 +2847,8 @@ AURA_ECLIPSE_ULTRAMAX = {
  }
 };
 
-/* Diagnostica (spenta di default): cosa passa Myspoti all'estensione. Serve a capire se
- * esiste una coda/lista dei brani successivi da usare per il precaricamento. */
-var diagLast = 0, diagSeen = {};
-function diagOn() {
-  var v = myspoti.settings.get('diagnostics');
-  return v === true || String(v) === 'true';
-}
-function diagKeys(o) {
-  var out = [];
-  try { for (var k in o) out.push(k); } catch (e) {}
-  return out;
-}
-function diagShort(v) {
-  var s;
-  try {
-    s = JSON.stringify(v, function (k, x) {
-      if (typeof x === 'function') return '[funzione]';
-      if (x && x.length > 5 && typeof x !== 'string') return '[lista di ' + x.length + ']';
-      if (typeof x === 'string' && x.length > 80) return x.slice(0, 80) + '…';
-      return x;
-    });
-  } catch (e) { s = '[non serializzabile]'; }
-  return String(s).slice(0, 700);
-}
-function diagnose(track) {
-  if (!diagOn()) return;
-  try {
-    var t = new Date().getTime(), gap = diagLast ? Math.round((t - diagLast) / 100) / 10 : null;
-    diagLast = t;
-    AURA_DEV_WRITE('[DIAG] richiesta audio' + (gap === null ? '' : ' a +' + gap + ' s dalla precedente') +
-      ' | brano: ' + (track && track.title) + ' — ' + (track && (track.artist || (track.artists && track.artists[0]))));
-    var tk = diagKeys(track);
-    var sus = [];
-    for (var i = 0; i < tk.length; i++) if (/queue|next|upcoming|playlist|album|tracks|position|index|context/i.test(tk[i])) sus.push(tk[i]);
-    if (track && track.ahead !== undefined) {
-      var ah = track.ahead, an = (ah && ah.length !== undefined) ? ah.length : null;
-      AURA_DEV_WRITE('[DIAG] ahead: tipo ' + (ah === null ? 'null' : (ah && ah.length !== undefined ? 'lista' : typeof ah)) +
-        (an !== null ? ', ' + an + ' elementi' : '') + ' | contenuto: ' +
-        diagShort(an !== null && an > 0 ? [ah[0], an > 1 ? ah[1] : null] : ah));
-    }
-    AURA_DEV_WRITE('[DIAG] campi del brano: ' + tk.join(', '));
-    AURA_DEV_WRITE('[DIAG] campi che somigliano a una coda: ' + (sus.length ? sus.join(', ') : 'nessuno'));
-    if (!diagSeen.api) {
-      diagSeen.api = true;
-      AURA_DEV_WRITE('[DIAG] funzioni di myspoti: ' + diagKeys(myspoti).join(', '));
-      AURA_DEV_WRITE('[DIAG] features: ' + diagShort(myspoti.features));
-      AURA_DEV_WRITE('[DIAG] brano completo: ' + diagShort(track));
-    }
-  } catch (e) { AURA_DEV_WRITE('[DIAG] errore: ' + String(e).slice(0, 80)); }
-}
-
+/* MySpoti gestisce nativamente audio.ahead e il prebuffer dei primi 512 KB.
+ * Non duplicare il prefetch nell'estensione. */
 var served = {};
 var SOURCES = ['qz', 'ec', 'bc'];
 var SOURCE_NAMES = { qz: 'Qobuz', ec: 'Eclipse', bc: 'BitChord' };
@@ -2826,7 +2956,7 @@ return {
   var nonceCounter = 0;
   var MATCH_KEY = 'match_cache', HEALTH_KEY = 'provider_health', QUEUE_KEY = 'verification_queue';
   var MATCH_TTL = 14 * 24 * 3600 * 1000, MATCH_MAX = 500;
-  var KEEP_MS = 4 * 60 * 1000, RETRY_MS = 5000;
+  var KEEP_MS = 12 * 1000, RETRY_MS = 1000; // 422: manifest-only cache; URLs are never stored
   var GATE_PAUSE_MS = 30 * 1000;
   var SILENT_GAP = 10 * 60 * 1000, AUTO_VERIFY_GAP = 30 * 60 * 1000;
   var kept = {}, lastSilent = {}, lastAuto = 0;
@@ -2849,8 +2979,8 @@ return {
   function text(v) { return v == null ? '' : String(v).trim(); }
   function log(message) { try { AURA_DEV_WRITE('[FLAC Bridge] ' + message); } catch (ignored) {} }
   // SOURCE352: one-source laboratory mode; independent of legacy automatic toggles.
-  var SOURCE352_KEYS = ['sourceQobuzPersonal','sourceQobuzLast','sourceQobuzAura','sourceTidalAura','sourceDeezer','sourceNetEase','sourceJioSaavn','relay319_aurix','relay319_eljohnzc'];
-  function source352Active() { return false; }
+  var SOURCE352_KEYS = ['sourceQobuzPersonal','sourceQobuzLast','sourceQobuzAura','sourceTidalAura','sourceDeezer','sourceNetEase','sourceJioSaavn','relay319_arcod'];
+  function source352Active() { var v=tigroVaultSetting('source352Lab');return v===true||String(v)==='true'; }
   function source352Selected() {
     var picked=[];
     for(var i=0;i<SOURCE352_KEYS.length;i++){
@@ -2866,6 +2996,8 @@ return {
       if(SOURCE352_KEYS.indexOf(key)>=0)return source352Allowed(key);
       if(key==='colibriEco'||key==='splashWhale')return false;
     }
+    // BUILD390: Arcod promoted to automatic HQ, with SOURCE352 isolation respected.
+    if (key === 'relay319_arcod') return true;
     // NUVOLA320: isolate all established sources without changing their settings.
     if (key === 'nuvolaIsolate320') {
       var nv; try { nv=tigroVaultSetting(key); } catch (_) {}
@@ -3126,7 +3258,7 @@ return {
       if (!toggle(p.key === 'qobuz' ? 'sourceQobuzAura' : 'sourceTidalAura', false)) return;
       var sess = myspoti.storage.get(p.storage);
       var exp = validSession(sess) && sess.expiresAt ? Date.parse(sess.expiresAt) : NaN;
-      if (!(force || requiresReverify(p) || !validSession(sess))) return;
+      if (!(force || requiresReverify(p) || !validSession(sess) || (isFinite(exp) && exp <= now))) return;
       if (force) {
         if (hm[p.key] && hm[p.key].kind === 'busy') delete hm[p.key];
         delete lastSilent[p.key];
@@ -3432,6 +3564,19 @@ return {
       if (!text(track.title) || !text(track.artist)) return null;
       path = '/search/tracks'; params = { query: (text(track.artist) + ' ' + text(track.title)).slice(0, 240), countryCode: 'US', limit: 25 };
     }
+    // MAURO434: direct catalog search first; never use refreshed token as stream authorization.
+    // This path is reached only when Tidal Aura needs a match (no additional global search).
+    // 607: do not spend the audio-source deadline refreshing a catalog-only token.
+    // Cached pool access may help matching, but cannot authorize the Aura stream.
+    var account=mauro434CachedAccess();
+    AURA_DEV_WRITE('[TIDAL607] catalog-pool='+(account?'cached':'skip-refresh')+' audio-auth=Aura');
+    if(account && deadline-Date.now()>2800){
+      var direct=requestJson('https://api.tidal.com/v1/search?'+myspoti.query({query:(text(track.artist)+' '+text(track.title)).slice(0,240),limit:25,types:'TRACKS',countryCode:account.country}),
+        {Accept:'application/json',Authorization:'Bearer '+account.access},deadline,Math.min(2200,deadline-Date.now()));
+      var directItems=direct&&direct.tracks&&direct.tracks.items;
+      var matched=bestHit(track,directItems,'tidal');
+      if(matched){AURA_DEV_WRITE('[SMART434] Tidal direct ISRC/catalog hit; skip legacy catalog lookup');return matched;}
+    }
     var j = requestJson('https://tidal.com/v1' + path + '?' + myspoti.query(params),
       { Accept: 'application/json', 'x-tidal-token': '49YxDN9a2aFV6RTG' }, deadline, 2600);
     return bestHit(track, j && j.items, 'tidal');
@@ -3658,10 +3803,13 @@ return {
   }
   function resolveTidal(track, p, session, deadline) {
     var hit = hitFor(p, track, function () { return tidalHit(track, deadline); }); if (!hit) { log('[WHALE268] Tidal Aura: nessun match ammesso; nessuna richiesta stream HQ/lossy eseguita.'); return null; }
+    AURA_DEV_WRITE('[TIDAL607] catalog-hit=ok remaining_ms='+(deadline-Date.now()));
     var t = ticket(p, session, 'tid', hit.id, deadline);
+    AURA_DEV_WRITE('[TIDAL607] ticket=ok remaining_ms='+(deadline-Date.now()));
     var response = signedRequest(p, session, 'POST', '/dl/tid', null,
       { id: hit.id, quality: 'LOSSLESS' }, { 'X-Zarz-Ticket': t }, deadline);
     var data = response && response.data, result = decodedTidal(data);
+    AURA_DEV_WRITE('[TIDAL607] audio-manifest='+(result?'accepted':'rejected')+' remaining_ms='+(deadline-Date.now()));
     return metadata(result, p, hit, data && data.bitDepth, data && data.sampleRate);
   }
   function looksPreview(data, hit) {
@@ -3833,6 +3981,17 @@ return {
         }
       } catch (ignoredPersonal) { log('Qobuz personale: resolver non disponibile.'); }
     }
+    // BUILD390: Arcod primary HQ after personal Qobuz; fallback continues on failure.
+    if (toggle('relay319_arcod', true) && deadline-Date.now()>2700) {
+      try {
+        var arcodCandidate=AURA_RELAY_319.resolve(track, Math.min(deadline,Date.now()+4300), toggle, AURA_DEV_WRITE);
+        if (arcodCandidate && arcodCandidate.url) {
+          results.push(arcodCandidate);
+          AURA_DEV_WRITE('[ARCOD390] FLAC resolved; primary HQ source');
+          if (!collectAll) return results;
+        }
+      } catch (arcodError) { AURA_DEV_WRITE('[ARCOD390] unavailable; continuing HQ fallback'); }
+    }
     // Shared Qobuz follows personal Qobuz; Aura providers as fallback.
     // No extra matching or settings changes to the Aura engine.
     if (toggle('sourceQobuzLast', true) && deadline - Date.now() > 1700) {
@@ -3897,7 +4056,21 @@ return {
             delete lastSilent[p.key]; // fresh server 428 supersedes earlier local cooldown
             var restored = recover(p, Math.min(deadline, Date.now() + 2700));
             log('[SHIELD355] '+p.name+' server-reject-silent-restored='+restored);
-            log('[SHIELD349] '+p.name+' trigger=401 restored='+restored+' retry-stream=OFF');
+            // 607: exactly one bounded replay after a genuinely successful session recovery.
+            // Never retry on failed recovery or when the player deadline is exhausted.
+            if(restored && p.key==='tidal' && deadline-Date.now()>3200){
+              try {
+                var retrySession=activeSession(p,deadline);
+                var retryResult=retrySession?resolveTidal(track,p,retrySession,deadline):null;
+                if(retryResult){
+                  results.push(retryResult);
+                  recordStat(p,true,Date.now()-started,retryResult.bitDepth,retryResult.sampleRate);
+                  noteOutcome(p,'ok');
+                  AURA_DEV_WRITE('[TIDAL607] retry-stream=OK');
+                  if(!collectAll)return results;
+                } else AURA_DEV_WRITE('[TIDAL607] retry-stream=no-audio');
+              }catch(retryError){AURA_DEV_WRITE('[TIDAL607] retry-stream=failed type='+String(retryError&&retryError.message||'unknown').slice(0,35));}
+            } else AURA_DEV_WRITE('[TIDAL607] retry-stream=skip recovered='+Boolean(restored)+' remaining_ms='+(deadline-Date.now()));
           }
         } else if (code === 'TIME_BUDGET') {
           qlog(p.name + ': tempo della fonte esaurito (' + (Date.now() - started) + ' ms).');
@@ -3917,11 +4090,10 @@ return {
         }
       }
     }
-    // Experimental HQ relays after stable Qobuz/Tidal, before Deezer and NetEase.
-    if (!results.length && deadline-Date.now()>2400) {
-      try { var experimental=AURA_RELAY_319.resolve(track,deadline,toggle,AURA_DEV_WRITE);
-        if(experimental){results.push(experimental);if(!collectAll)return results;}
-      } catch(relayError){AURA_DEV_WRITE('[RELAY319] errore isolato: '+String(relayError).slice(0,100));}
+    // MAURO399: opt-in Rickyaddons before personal Deezer, without affecting other sources.
+    if(!results.length && toggle('mauro399_deezerNormal',false) && deadline-Date.now()>2000){
+      try{var ricky=AURA_MAURO398.resolve(track,true);if(ricky){results.push(ricky);if(!collectAll)return results;}}
+      catch(e){AURA_DEV_WRITE('[POOL399] normal Rickyaddons unavailable');}
     }
     // UltraMAX manifest via original Last Eclipse resolver. No personal URL in code or logs.
     if (!results.length && toggle('sourceDeezer', false) && deadline-Date.now()>2000) {
@@ -3988,6 +4160,7 @@ return {
     // explicitly support lossy before being included; never guess API parameters.
     if (!results.length && !collectAll && toggle('splashWhale', false)) {
       AURA_DEV_WRITE('[WHALE268] HQ esaurito: Whale valuta MP3 NetEase, AAC JioSaavn e Deezer high. Qobuz MP3: prova autorizzata format 5; Tidal lossy ancora non abilitato.');
+      AURA_DEV_WRITE('[DEEZER436] prioritize Deezer rescue when configured; skip speculative Qobuz MP3 probe');
       AURA_DEV_WRITE('[WHALE268] candidati riusati: NetEase='+(deferredNeteaseMp3?'si':'no')+' JioSaavn='+(whaleJio?'si':'no')+' Deezer_attivo='+(toggle('sourceDeezer',false)?'si':'no')+' budget_ms='+Math.max(0,deadline-Date.now()));
       // WHALE270: prefer the already-resolved NetEase MP3; do not call Deezer High
       // when that candidate is usable. No additional NetEase search or bitrate request.
@@ -3996,7 +4169,7 @@ return {
         String(deferredNeteaseMp3.format || '').toLowerCase() === 'mp3';
       // Only request Qobuz MP3 if no already-recovered NetEase MP3 is ready.
       var whaleQobuz = null;
-      if (!whaleNeteaseReady && toggle('sourceQobuzLast', true)) {
+      if (!whaleNeteaseReady && !toggle('sourceDeezer', false) && toggle('sourceQobuzLast', true)) {
         var guardianQobuzStart = Date.now();
         whaleQobuz = qobuzWhaleMp3(track, deadline);
         AURA_DEV_WRITE('[GUARDIAN379] Qobuz MP3 probe_ms=' + (Date.now()-guardianQobuzStart) + ' esito=' + (whaleQobuz ? 'mp3' : 'nessuno'));
@@ -4040,9 +4213,88 @@ return {
     return results;
   }
 
+  function tidalPersonalCheck() {
+    var prefix = '[TIDAL386] ';
+    var token = text(myspoti.settings.get('tidalPersonalDevToken')).replace(/^Bearer +/i, '');
+    if (!token || token.length > 4096 || !/^[A-Za-z0-9._~+\/=-]+$/.test(token)) {
+      var issue = token ? 'Formato token non valido' : 'Token assente';
+      myspoti.log(prefix + issue);
+      notify('TIDAL DEV · ' + issue);
+      return;
+    }
+    var headers = { Accept: 'application/vnd.api+json', Authorization: 'Bearer ' + token };
+    function probe(path, type, expectedId) {
+      try {
+        var r = myspoti.http.get('https://openapi.tidal.com/v2' + path, { headers: headers, timeout: 4500 });
+        var status = Number(r && r.status);
+        if (!Number.isInteger(status) || status < 100 || status > 599) return 'ERRORE_RETE';
+        if (status !== 200) return 'HTTP_' + status;
+        try {
+          var data = r.json().data;
+          var id = data && typeof data.id === 'string' ? data.id : '';
+          return data && data.type === type && id && (!expectedId || id === expectedId) ? 'OK' : 'RISPOSTA_INATTESA';
+        } catch (ignored) { return 'RISPOSTA_INATTESA'; }
+      } catch (ignored) {
+        // HTTP errors and response bodies can contain account details.
+        return 'ERRORE_RETE';
+      }
+    }
+    var catalogue = probe('/albums/59727856?countryCode=IT', 'albums', '59727856');
+    var profile = probe('/users/me', 'users');
+    myspoti.log(prefix + 'catalogo=' + catalogue + ' profilo=' + profile);
+    notify('TIDAL DEV · Catalogo ' + catalogue + ' · Profilo ' + profile);
+  }
+
+
+  /* MAURO434: Tidal refresh pool for direct catalog matching, not audio playback. */
+  function mauro434Tokens(){
+    var raw=String(myspoti.settings.get('mauroTidalPool433')||'');
+    var seen={},out=[];
+    raw.split(/[\s,;]+/).forEach(function(t){if(t.length>=40&&!seen[t]){seen[t]=true;out.push(t);}});
+    return out;
+  }
+  function mauro434CachedAccess(){
+    var pool=mauro434Tokens();
+    for(var n=0;n<pool.length;n++){
+      var saved=myspoti.storage.get('mauro434_slot_'+n);
+      if(saved&&saved.access&&saved.expires>Date.now()+300000&&saved.fingerprint===pool[n].slice(-12))return saved;
+    }
+    return null;
+  }
+  function mauro434Access(deadline){
+    var pool=mauro434Tokens(); if(!pool.length)return null;
+    var start=Number(myspoti.storage.get('mauro434_next')||0)%pool.length;
+    for(var n=0;n<pool.length;n++){
+      var idx=(start+n)%pool.length,rt=pool[idx],key='mauro434_slot_'+idx;
+      var saved=myspoti.storage.get(key);
+      if(saved&&saved.access&&saved.expires>Date.now()+300000&&saved.fingerprint===rt.slice(-12))return saved;
+      if(saved&&saved.badUntil>Date.now()&&saved.fingerprint===rt.slice(-12))continue;
+      if(deadline&&deadline-Date.now()<1300)return null;
+      try{
+        var body='grant_type=refresh_token&refresh_token='+encodeURIComponent(rt)+'&client_id=zU4XHVVkc2tDPo4t&client_secret=VJ8pQggXLhLy0WHahglCD4N1nAkkXQtGYpq2HrHD7H1';
+        var r=myspoti.http.request({url:'https://auth.tidal.com/v1/oauth2/token',method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},body:body,timeout:Math.min(4000,Math.max(1200,(deadline||Date.now()+4000)-Date.now()))});
+        var j={};try{j=JSON.parse(String(r&&r.body||'{}'));}catch(_e){}
+        if(Number(r&&r.status)===200&&j.access_token){
+          var good={fingerprint:rt.slice(-12),access:j.access_token,expires:Date.now()+Math.max(600,Number(j.expires_in)||14400)*1000,country:String(j.user&&j.user.countryCode||'US')};
+          myspoti.storage.set(key,good);myspoti.storage.set('mauro434_next',idx);
+          AURA_DEV_WRITE('[POOL434] Tidal pool slot='+idx+' refreshed');return good;
+        }
+      }catch(_e){}
+      myspoti.storage.set(key,{fingerprint:rt.slice(-12),badUntil:Date.now()+1800000});
+      AURA_DEV_WRITE('[POOL434] Tidal pool slot='+idx+' cooldown=30m');
+    }
+    return null;
+  }
+  function mauro433Probe(){
+    var pool=mauro434Tokens(),ok=mauro434Access(Date.now()+7000);
+    myspoti.log('[POOL434] Tidal pool configured='+pool.length+' refresh='+(ok?'ok':'unavailable')+' playback=resolver');
+    notify('Tidal pool · '+(ok?'refresh OK':'nessun token valido'));
+  }
   myspoti.on('setting', function (event) {
     if (!event || event.pressed !== true) return;
     var key = text(event.key);
+    if (key === 'mauroTidalProbe433') { mauro433Probe(); return; }
+    if (key === 'tidalPersonalDevCheck') { tidalPersonalCheck(); return; }
     if (key === 'verify') key = 'verify_tidal'; // Supports an event queued by version 1.
     if (key === 'qobuzPoolHealth') {
       try {
@@ -4104,16 +4356,17 @@ return {
     }
     if (key === 'resetQobuzCooldown') {
       var ok = resetQobuzDeadVerified('PULSANTE');
-      notify(ok ? 'Attese account locali azzerate e verificate. Puoi riprovare.' :
-        'Azzeramento attese account locali non verificato: controlla il Registro.');
+      notify(ok ? 'Account cooldowns reset. You can retry.' :
+        'Account cooldown reset could not be verified. Check diagnostics.');
       return;
     }
     if (key === 'clearCache') {
       NETEASE_FAST.clearCache(); AURA_JIOSAAVN.reset(); SOURCE_MANAGER.reset();
+      try{myspoti.storage.remove('nuvola51_relay_health');myspoti.storage.remove(QOBUZ_PREVIEW_SHARED_KEY);}catch(e){}
       kept = {}; lastSilent = {};
       resetQobuzDeadVerified('SVUOTA_CACHE');
       myspoti.storage.remove(MATCH_KEY); myspoti.storage.remove(HEALTH_KEY); myspoti.storage.remove(STATS_KEY);
-      log('Cache svuotata.'); notify('Cache degli abbinamenti svuotata.');
+      log('Audio caches and cooldowns cleared.'); notify('Audio caches and cooldowns cleared.');
       return;
     }
     if (key === 'forget') {
@@ -4123,7 +4376,7 @@ return {
       myspoti.storage.remove(INSTALL_KEY); myspoti.storage.remove(PENDING_KEY);
       myspoti.storage.remove(REVERIFY_KEY); clearQueue();
       log('[RC1] Aura auth sessions reset only; audio caches and Vault preserved.');
-      notify('Solo sessioni Aura azzerate. Vault e cache audio conservati.');
+      notify('Aura sessions reset. Vault and audio caches preserved.');
       return;
     }
   });
@@ -4141,7 +4394,18 @@ return {
   // Startup verification: reuse Aura's existing serial verification queue.
   // Do not invalidate valid sessions or interrupt an ongoing authentication.
   function verifyOnStartup() {
-    // SHIELD350: always log entry and reason for early return, without exposing secrets.
+    // SHIELD429: a new resolver context may run this startup hook repeatedly.
+    // Keep one automatic recovery per 90 s across contexts; manual Verify is unaffected.
+    // Persist only a timestamp, never credentials or a session mutation.
+    var guardKey = 'shield429_startup_guard_ms';
+    var now = Date.now(), previous = 0;
+    try { previous = Number(myspoti.storage.get(guardKey)) || 0; } catch (ignored) {}
+    if (previous > 0 && now >= previous && now - previous < 90000) {
+      log('[SHIELD429] startup recovery suppressed cooldown_ms='+(90000-(now-previous)));
+      return;
+    }
+    try { myspoti.storage.set(guardKey, now); } catch (ignored) {}
+    log('[SHIELD429] startup recovery admitted');
     log('[SHIELD350] startup entered');
     try {
       if (pendingValid()) {
@@ -4155,7 +4419,7 @@ return {
         var structural = validSession(session);
         var expiry = structural && session.expiresAt ? Date.parse(session.expiresAt) : NaN;
         // A local expiration is not proof of server-side validity or revocation.
-        if (structural && isFinite(expiry) && expiry <= Date.now()) {
+        if (requiresReverify(p) || (structural && isFinite(expiry) && expiry <= Date.now())) {
           expired.push(p.key);
           missing.push(p.key);
         } else if (structural) {
@@ -4218,29 +4482,37 @@ return {
     nextInQueue();
   });
   myspoti.on('auth', finishVerification);
-  // COLIBRI277: independent compressed-audio streaming mode; HQ resolver untouched.
+  // ECO608: strict ordered fallback, never allow Jio AAC to outrun MP3 sources.
+  // Each resolver is independently bounded by its own network timeouts.
   function colibriResolve(track) {
-    var deadline = Date.now() + 10500;
-    AURA_DEV_WRITE('[ZOO283] Colibri: NetEase -> JioSaavn, sorgenti Eco automatiche; fallback MySpoti');
-    if (deadline-Date.now()>2200) {
-      try {
-        var n=NETEASE_FAST.resolve(track,false,true);
-        if (n && n.url && n.format==='mp3' && /^https:\/\/[^\s]+$/i.test(n.url)) {
-          AURA_DEV_WRITE('[COLIBRI277] NetEase: MP3 trovato');return n;
-        }
-        AURA_DEV_WRITE('[COLIBRI277] NetEase: nessun MP3 ammesso');
-      } catch (e) { AURA_DEV_WRITE('[COLIBRI277] NetEase: errore '+String(e&&e.name||'sconosciuto')); }
-    }
-    if (deadline-Date.now()>2000) {
-      try {
-        var j=AURA_JIOSAAVN.resolve(track,deadline);
-        if(j && j.url && /^(mp3|m4a|aac)$/i.test(String(j.format||'')) && /^https:\/\/[^\s]+$/i.test(j.url)) {
-          AURA_DEV_WRITE('[COLIBRI278] JioSaavn: '+j.format+' disponibile (bitrate effettivo non verificato)');return j;
-        }
-      } catch(e) { AURA_DEV_WRITE('[COLIBRI277] JioSaavn: errore '+String(e&&e.name||'sconosciuto')); }
-    }
-    AURA_DEV_WRITE('[COLIBRI277] Nessun audio compresso: controllo restituito a MySpoti');
-    return null;
+    var deadline=Date.now()+10500;
+    AURA_DEV_WRITE('[FINAL609] priority=NetEase MP3 > Deezer MP3 > BitChord MP3 > JioSaavn AAC/MP3; MySpoti audio cache external');
+    var n=null;
+    if(toggle('sourceNetEase',true) && deadline-Date.now()>2500)try{
+      n=NETEASE_FAST.resolve(track,false,true);
+      if(n&&n.url&&cloud363Codec(n)==='mp3'&&/^https:\/\/[^\s]+$/i.test(n.url)){
+        AURA_DEV_WRITE('[ECO608] hit=netease codec=mp3');return n;
+      }
+    }catch(e){AURA_DEV_WRITE('[ECO608] netease=error');}
+    if(deadline-Date.now()>3000)try{
+      n=AURA_MAURO398.smartQuality(track,'ricky_320');
+      if(n&&n.url&&cloud363Codec(n)==='mp3'){
+        AURA_DEV_WRITE('[ECO608] hit=deezer codec=mp3');return n;
+      }
+    }catch(e){AURA_DEV_WRITE('[ECO608] deezer=error');}
+    if(deadline-Date.now()>2800)try{
+      n=AURA_MAURO398.smartQuality(track,'bc_low');
+      if(n&&n.url&&cloud363Codec(n)==='mp3'){
+        AURA_DEV_WRITE('[ECO608] hit=bitchord codec=mp3');return n;
+      }
+    }catch(e){AURA_DEV_WRITE('[ECO608] bitchord=error');}
+    if(toggle('sourceJioSaavn',true) && deadline-Date.now()>1800)try{
+      n=AURA_JIOSAAVN.resolve(track,deadline);
+      if(n&&n.url&&/^(mp3|m4a|aac)$/i.test(String(n.format||''))&&/^https:\/\/[^\s]+$/i.test(n.url)){
+        AURA_DEV_WRITE('[ECO608] hit=jiosaavn codec='+cloud363Codec(n)+' bitrate=unverified last-resort');return n;
+      }
+    }catch(e){AURA_DEV_WRITE('[ECO608] jiosaavn=error');}
+    AURA_DEV_WRITE('[ECO608] miss=all fallback=MySpoti');return null;
   }
   // CLOUD363: metadata-only codec classification. Never inspect signed URLs,
   // never infer lossless quality from an unknown provider, never log credentials.
@@ -4271,11 +4543,126 @@ return {
     if(elapsed>budget)st.overBudget++;
     AURA_DEV_WRITE('[CLOUD364] central requests='+st.requests+' cache_hits='+st.hits+' cache_misses='+st.misses+' fast_rescue='+st.rescued+' errors='+st.errors+' over_budget='+st.overBudget+' shared_search_hits='+CLOUD365_SEARCH.stats.hits+' shared_search_stores='+CLOUD365_SEARCH.stats.stores+' engine='+engine+' provider='+provider+' elapsed_ms='+elapsed);
   }
+  // LABOON408: legacy-first rescue. OFF retains the original Cloud361 path.
+  // The 405 resolver remains authoritative; no extra lossy cascade is introduced.
+  function laboon408Resolve(track,engine){
+    var start=Date.now(),budget=engine==='COLIBRI'?4500:4800;
+    var legacy=null;
+    try{
+      legacy=engine==='COLIBRI'?colibriResolve(track):resolve(track,budget,false)[0];
+    }catch(e){AURA_DEV_WRITE('[LABOON408] legacy exception='+String(e&&e.name||'error'));}
+    if(legacy){AURA_DEV_WRITE('[LABOON408] legacy=hit elapsed_ms='+(Date.now()-start));return legacy;}
+    // MySpoti can fall back to Spotify at ~6s. Never launch a new search after
+    // this deadline: late replies cannot rescue the current playback.
+    var elapsed=Date.now()-start;
+    if(elapsed>=4900){AURA_DEV_WRITE('[LABOON408] rescue=skipped reason=playback-deadline elapsed_ms='+elapsed);return null;}
+    var order=engine==='COLIBRI'?['bc_low','ricky_320']:
+      ['bc_lossless','ricky_flac'];
+    // Stop launching new attempts once the playback deadline is reached.
+    // Each underlying resolver still enforces its own health/cooldown.
+    for(var i=0;i<order.length;i++){
+      if(Date.now()-start>=4900)break;
+      try{
+        var candidate=AURA_MAURO398.smartQuality(track,order[i]);
+        if(candidate&&(candidate.url||candidate.manifest)){
+          AURA_DEV_WRITE('[LABOON408] rescue='+order[i]+' result=hit elapsed_ms='+(Date.now()-start));
+          return candidate;
+        }
+      }catch(e){AURA_DEV_WRITE('[LABOON408] rescue='+order[i]+' error='+String(e&&e.name||'error'));}
+      // A blocking MySpoti request can exceed our deadline; never start another.
+    }
+    AURA_DEV_WRITE('[LABOON408] rescue=miss elapsed_ms='+(Date.now()-start));
+    return null;
+  }
+  // NUVOLA 5.1: optional host-managed parallel lanes. Each lane returns an
+  // audio descriptor; no lane calls race recursively. Host decides the winner.
+  // All lanes use existing, independently validated resolvers.
+  function nuvola51Descriptor(f) {
+    if (!f || (!f.url && !f.manifest)) return null;
+    var fmt=String(f.format||'').toLowerCase();
+    if (f.url && !/^https:\/\/[a-z0-9.-]+(?:[\/:?#]|$)/i.test(String(f.url))) return null;
+    var out={source:String(f.provider||'Nuvola')+' · '+(fmt==='mp3'?'MP3':fmt==='aac'||fmt==='m4a'?'AAC':'FLAC dichiarato'),expiresInMs:(f.url?3000:KEEP_MS)};
+    if (f.url){out.url=f.url;out.mimeType=fmt==='mp3'?'audio/mpeg':fmt==='aac'||fmt==='m4a'?'audio/mp4':'audio/flac';}
+    else {out.manifest=f.manifest;out.mimeType=f.mimeType||'audio/mp4';if(f.codec)out.codec=f.codec;}
+    return out;
+  }
+  // RESCUE435: short-lived per-track metadata/descriptor fallback. Never persist signed URLs.
+  // A deferred Deezer hit must survive the secondary HQ race in this JS context.
+  var rescue435={};
+  function rescue435Key(track){return keyOf(track)+'|'+String(track&&track.isrc||'').toUpperCase();}
+  function rescue435Save(track,candidate){
+    var d=nuvola51Descriptor(candidate);if(!d)return;
+    var key=rescue435Key(track),codec=cloud363Codec(candidate);
+    rescue435[key]={at:Date.now(),descriptor:d,codec:codec};
+    if(Object.keys(rescue435).length>64)Object.keys(rescue435).forEach(function(k){if(Date.now()-rescue435[k].at>12000)delete rescue435[k];});
+    AURA_DEV_WRITE('[RESCUE435] deferred Deezer retained codec='+codec);
+  }
+  function rescue435Take(track,engine){
+    var key=rescue435Key(track),v=rescue435[key];delete rescue435[key];
+    if(!v||Date.now()-v.at>10000)return null;
+    if(engine!=='WHALE' && !/^(flac|flac-declared)$/.test(v.codec))return null;
+    AURA_DEV_WRITE('[RESCUE435] recovered deferred Deezer codec='+v.codec+' engine='+engine);
+    return v.descriptor;
+  }
+  function nuvola51Lane(track,engine,lane){
+    var f=null, begin=Date.now();
+    try {
+      if(lane==='hq_legacy') f=resolve(track,4600,false)[0]; // 605: restore pre-604 deadline; MySpoti may fall back after ~6 s
+      else if(lane==='hq_bitchord') f=AURA_MAURO398.smartQuality(track,'bc_lossless');
+      else if(lane==='hq_ricky') f=AURA_MAURO398.smartQuality(track,'ricky_flac');
+      else if(lane==='eco_deezer') { var c=resolve(track,4600,false)[0]; if(c && /deezer|ricky/i.test(String(c.provider||'')) && /^(mp3|aac)$/.test(cloud363Codec(c))) f=c; }
+      else if(lane==='eco_netease') f=NETEASE_FAST.resolve(track,false,true);
+      else if(lane==='eco_jio') f=AURA_JIOSAAVN.resolve(track,Date.now()+4500);
+      else if(lane==='eco_ricky') f=AURA_MAURO398.smartQuality(track,'ricky_320');
+      else if(lane==='eco_bitchord') f=AURA_MAURO398.smartQuality(track,'bc_low');
+    }catch(e){AURA_DEV_WRITE('[NUVOLA51] lane='+lane+' error='+String(e&&e.name||'unknown'));}
+    var fmt=cloud363Codec(f);
+    if(lane.indexOf('hq_')===0 && /^(mp3|aac)$/.test(fmt)) { if(engine==='WHALE') rescue435Save(track,f); AURA_DEV_WRITE('[HQ605] lossy deferred until HQ miss'); f=null; }
+    if(lane.indexOf('eco_')===0 && !/^(mp3|aac)$/.test(fmt))f=null;
+    // GUARD432: a provider object without a usable HTTPS URL/manifest is a miss,
+    // not a race winner. Keep the host race free to use another valid lane.
+    var descriptor=nuvola51Descriptor(f);
+    if(f && !descriptor) AURA_DEV_WRITE('[GUARD432] lane='+lane+' invalid descriptor rejected');
+    AURA_DEV_WRITE('[NUVOLA51] lane='+lane+' elapsed_ms='+(Date.now()-begin)+' result='+(descriptor?'hit':'miss'));
+    return descriptor;
+  }
+  function nuvola51Race(track,engine){
+    var available=!!(myspoti.features&&myspoti.features.indexOf('sources.race')>=0&&myspoti.sources&&typeof myspoti.sources.race==='function');
+    if(!available){AURA_DEV_WRITE('[NUVOLA51] race unavailable; fallback=Laboon408');return {supported:false,out:null};}
+    var lanes=engine==='COLIBRI'?['eco_netease']:['hq_legacy','hq_bitchord']; // PRIORITY430: Deezer is fallback, not first-response winner
+    var ecoStart=Date.now();
+    try{
+      var result=myspoti.sources.race('audio-source',track,lanes);
+      AURA_DEV_WRITE('[FINAL609] preferred '+(engine==='COLIBRI'?'MP3':'HQ')+' lane engine='+engine+' result='+(result?'hit':'miss'));
+      // ECO608: stage-by-stage host race enforces priority, unlike a parallel
+      // first-response-wins race that let Jio AAC preempt NetEase/Deezer MP3.
+      if(engine==='COLIBRI' && !result){
+        var stages=['eco_ricky','eco_bitchord','eco_jio'];
+        for(var ec=0;ec<stages.length && !result;ec++){
+          if(stages[ec]==='eco_jio' && !toggle('sourceJioSaavn',true))continue;
+          if(Date.now()-ecoStart>=5200){AURA_DEV_WRITE('[FINAL609] eco-stage=skipped budget_ms=5200 elapsed_ms='+(Date.now()-ecoStart));break;}
+          result=myspoti.sources.race('audio-source',track,[stages[ec]]);
+          AURA_DEV_WRITE('[FINAL609] eco-priority stage='+stages[ec]+' rank='+(ec+2)+' elapsed_ms='+(Date.now()-ecoStart)+' result='+(result?'hit':'miss'));
+        }
+      }
+      if(!result && engine!=='COLIBRI') {
+        // Run Deezer only when no preferred full HQ candidate was returned.
+        // Never substitute a Qobuz preview for a complete Deezer track.
+        result=myspoti.sources.race('audio-source',track,['hq_ricky']);
+        AURA_DEV_WRITE('[PRIORITY430] Deezer fallback result='+(result?'hit':'miss'));
+      }
+      // A valid legacy Deezer candidate must not disappear merely because the
+      // secondary resolver missed or entered cooldown. Tigro remains HQ-only.
+      if(!result && engine==='WHALE')result=rescue435Take(track,engine);
+      else if(result && engine==='WHALE')rescue435Take(track,'TIGRO');
+      return {supported:true,out:result||null};
+    }catch(e){AURA_DEV_WRITE('[NUVOLA51] race error='+String(e&&e.name||'unknown')+' fallback=Laboon408');return {supported:false,out:null};}
+  }
   // CLOUD361: opt-in active coordinator. Preserve source resolvers and their
   // established quality/fallback order; centralize engine dispatch and deadline.
   function cloud361Resolve(track, engine) {
     var started=Date.now();
-    var budget=engine==='COLIBRI'?8500:11500;
+    var budget=10000; // 424: same nominal 10 s budget for TIGRO, WHALE, COLIBRI
     AURA_DEV_WRITE('[CLOUD361] begin mode=active engine='+engine+' budget_ms='+budget);
     var candidate=null;
     try {
@@ -4286,19 +4673,24 @@ return {
       return null; // No duplicate network calls on failure.
     }
     cloud364Report(engine,candidate,Date.now()-started,budget);
-    AURA_DEV_WRITE('[CLOUD362] dispatch=complete engine='+engine+' duration_ms='+(Date.now()-started)+' resolver_calls=1');
-    AURA_DEV_WRITE('[CLOUD363] engine='+engine+' codec='+cloud363Codec(candidate)+' quality='+cloud363Quality(candidate)+' elapsed_ms='+(Date.now()-started)+' budget_ms='+budget+' budget_exceeded='+((Date.now()-started)>budget)+' fallback='+(candidate?'resolved':'none'));
     AURA_DEV_WRITE('[CLOUD361] end mode=active engine='+engine+' elapsed_ms='+(Date.now()-started)+' result='+(candidate?'found':'not-found')+' provider='+(candidate?String(candidate.provider||'unknown').replace(/[^a-zA-Z0-9 ._-]/g,'').slice(0,42):'none')+' codec='+(candidate?String(candidate.format||'unknown'):'none'));
     return candidate;
   }
   myspoti.provide('audio-source', function (track) {
-    if(source352Active()){
+    // Source workers are independent copies; return without entering the root
+    // coordinator, cache, or authentication flow. Never log a signed URL.
+    if(track && track.source && /^hq_|^eco_/.test(String(track.source))) {
+      var laneEngine=String(track.source).indexOf('eco_')===0?'COLIBRI':'TIGRO';
+      return nuvola51Lane(track,laneEngine,String(track.source));
+    }
+    // Retired DEV isolation toggles must not override the public engine selection.
+    if(false && source352Active()){
       var only352=source352Selected();
       if(!only352){AURA_DEV_WRITE('[SOURCE352] ERRORE: selezionare esattamente una fonte');return null;}
       AURA_DEV_WRITE('[SOURCE352] audio isolamento='+only352+' fallback_interno=OFF');
     }
     // NUVOLA320: strict experimental-relay-only isolation for both playback and download.
-    if (toggle('nuvolaIsolate320', false)) {
+    if (false && toggle('nuvolaIsolate320', false)) {
       var nFound = null;
       try { nFound = AURA_RELAY_319.resolve(track, Date.now()+12000, toggle, AURA_DEV_WRITE); }
       catch (nErr) { AURA_DEV_WRITE('[NUVOLA320] resolver error '+String(nErr).slice(0,100)); }
@@ -4311,15 +4703,20 @@ return {
       return nOut;
     }
     var t0 = Date.now(), key = track && typeof track === 'object' ? keyOf(track) : '';
-    if(source352Active())key += '|SOURCE352:'+source352Selected();
+    if(false && source352Active())key += '|SOURCE352:'+source352Selected();
     key += '|cloud361:' + (true?'1':'0');
+    key += '|core:' + ((toggle('splashWhale',false) && !toggle('colibriEco',false)) || toggle('soleLegacyCore',false)?'sole':'nuvola');
+    // CACHE435: track ISRC is metadata, never an audio-quality lock.
+    // Source and engine toggles below isolate MP3 from FLAC playback.
+    key += '|isrc:' + String(track&&track.isrc||'').toUpperCase().slice(0,24);
     key += '|whale:' + (toggle('splashWhale',false)?'1':'0');
     key += '|colibri:' + (toggle('colibriEco',false)?'1':'0');
     key += '|tigro:' + (toggle('tigroHQ',true)?'1':'0');
-    key += '|relay319:' + ['eljohnzc','aurix'].map(function(x){return toggle('relay319_'+x,false)?'1':'0';}).join('');
+    key += '|relay319:' + ['arcod'].map(function(x){return toggle('relay319_'+x,false)?'1':'0';}).join('');
     key += '|sources:' + ['sourceNetEase','sourceQobuzLast','sourceQobuzAura','sourceTidalAura','sourceQobuzPersonal','sourceDeezer','sourceJioSaavn'].map(function(x){return toggle(x,true)?'1':'0';}).join('');
     if ((++audioCacheCalls % 32) === 0 || Object.keys(kept).length > 300) pruneAudioCache(t0);
     var k = key ? kept[key] : null;
+    if (k && k.out && k.out.url) { delete kept[key]; k=null; AURA_DEV_WRITE('[CACHE424] direct URL invalidated; resolve again, do not retry cached URL'); }
     if (k) {
       // La stessa richiesta pochi secondi dopo è Myspoti che riprova: si ricostruisce.
       if (t0 - k.at < RETRY_MS) {
@@ -4343,10 +4740,48 @@ return {
     var cloud348Enabled = !cloud361Enabled && false;
     var zooMode = toggle('colibriEco',false) ? 'COLIBRI' : (toggle('splashWhale',false) ? 'WHALE' : 'TIGRO');
     if (cloud348Enabled) AURA_DEV_WRITE('[CLOUD348] begin engine='+zooMode+' cache=miss; source-priority=legacy; mode=shadow');
-    AURA_DEV_WRITE('[ZOO283] modalita='+zooMode+'; toggleTigro='+toggle('tigroHQ',true)+'; priorita Colibri > Whale > Tigro');
+    AURA_DEV_WRITE('[ZOO283] modalita='+zooMode+'; toggleTigro='+toggle('tigroHQ',true)+'; selezione motore=Colibri se attivo, altrimenti Whale se attivo, altrimenti Tigro');
     AURA_DEV_WRITE('[ZOO283] '+zooMode+' priorita HQ: Qobuz personale > Qobuz Eclipse > Qobuz Aura > Tidal Aura > Deezer FLAC > NetEase FLAC > fallback');
-    var found = cloud361Enabled ? cloud361Resolve(track,zooMode) : (zooMode === 'COLIBRI' ? colibriResolve(track) : resolve(track, 13200, false)[0]);
+    var soleForRequest=(zooMode==='WHALE'||toggle('soleLegacyCore',false));
+    AURA_DEV_WRITE('[CORE] '+(soleForRequest?'SOLE':'NUVOLA')+' engine='+zooMode+' automaticWhale='+(zooMode==='WHALE'));
+    // NUVOLA435: host race returns first valid HQ descriptor without waiting for slower lanes.
+    // Alternatives can be retained only within the same invocation; playback failure
+    // after return is owned by the host and cannot be observed here.
+    // Beta coordinator: host race returns a complete audio descriptor.
+    // Smart OFF never enters this branch. Isolation and lab modes above bypass it.
+    if(!soleForRequest) {
+      var raced=nuvola51Race(track,zooMode);
+      var raceElapsed=Date.now()-t0;
+      if(raceElapsed>10000) AURA_DEV_WRITE('[BUDGET425] overrun engine='+zooMode+' stage=hq-race elapsed_ms='+raceElapsed+' nominal_ms=10000');
+      if(raced.supported){
+        // Whale alone may descend to compressed sources, but only after the
+        // HQ race has returned empty and there is enough time before Spotify.
+        if(!raced.out && zooMode==='WHALE' && Date.now()-t0<4900){
+          AURA_DEV_WRITE('[WHALE427] lossy-race admitted elapsed_ms='+(Date.now()-t0)+' window_ms=6500 nominal_ms=10000');
+          try{
+            raced.out=myspoti.sources.race('audio-source',track,['eco_netease','eco_jio','eco_ricky']);
+            AURA_DEV_WRITE('[NUVOLA51] whale lossy stage='+(raced.out?'hit':'miss'));
+            if(Date.now()-t0>10000) AURA_DEV_WRITE('[BUDGET425] overrun engine=WHALE stage=lossy-race elapsed_ms='+(Date.now()-t0)+' nominal_ms=10000');
+          }catch(e){AURA_DEV_WRITE('[NUVOLA51] whale lossy stage error='+String(e&&e.name||'unknown'));}
+        }
+        if(raced.out){
+          if(key && !raced.out.url)kept[key]={at:Date.now(),out:raced.out}; // 422: never memoize signed URLs
+          AURA_DEV_WRITE('[NUVOLA51] root result=host-race elapsed_ms='+(Date.now()-t0));
+          AURA_DEV_WRITE('[BUDGET425] engine='+zooMode+' stage=host-race elapsed_ms='+(Date.now()-t0)+' nominal_ms=10000 result=found');
+          return raced.out;
+        }
+        // The host exhausted its lane budget: don't start another expensive
+        // sequential HQ cascade after the playback deadline.
+        if(zooMode==='WHALE') AURA_DEV_WRITE('[WHALE423] stage=host-race elapsed_ms='+(Date.now()-t0)+' result=miss');
+        AURA_DEV_WRITE('[NUVOLA51] root result=miss; no duplicate HQ network cascade');
+        AURA_DEV_WRITE('[BUDGET425] engine='+zooMode+' stage=host-race elapsed_ms='+(Date.now()-t0)+' nominal_ms=10000 result=miss');
+        return null;
+      }
+    }
+    var found = soleForRequest ? cloud361Resolve(track,zooMode) : laboon408Resolve(track,zooMode);
     AURA_DEV_WRITE('[TWC304] ricerca motore=' + zooMode + ' tempo_ms=' + (Date.now() - t0) + ' esito=' + (found ? 'found' : 'not-found'));
+    if(Date.now()-t0>10000) AURA_DEV_WRITE('[BUDGET424] overrun engine='+zooMode+' elapsed_ms='+(Date.now()-t0)+' nominal_ms=10000; blocking resolver cannot be cancelled');
+    if(zooMode==='WHALE') AURA_DEV_WRITE('[WHALE423] stage=legacy elapsed_ms='+(Date.now()-t0)+' budget_ms=10000 result='+(found?'found':'miss'));
     if (!cloud361Enabled && false) AURA_DEV_WRITE('[CLOUD363] shadow engine='+zooMode+' codec='+cloud363Codec(found)+' quality='+cloud363Quality(found));
     if (cloud348Enabled) AURA_DEV_WRITE('[CLOUD348] end engine='+zooMode+' elapsed_ms='+(Date.now()-t0)+' result='+(found?'found':'not-found')+' provider='+(found?String(found.provider||'unknown').replace(/[^a-zA-Z0-9 ._-]/g,'').slice(0,42):'none')+' codec='+(found?String(found.format||'unknown'):'none')+' mode=shadow');
     // Resolver matching and source selection are unchanged. No redundant
@@ -4362,23 +4797,24 @@ return {
     }
     // Myspoti displays `source` only if structured quality is absent. Include the
     // provider and only real reported quality here, so users can see which one played.
-    var label = found.provider + (found.format === 'mp3' ? ' · MP3' : found.format === 'm4a' ? ' · AAC' : ' · FLAC');
+    var label = found.provider + (found.format === 'mp3' ? ' · MP3' : (found.format === 'm4a'||found.format === 'aac') ? ' · AAC' : ' · FLAC');
     if (found.bitDepth) label += ' · ' + found.bitDepth + '-bit';
     if (found.sampleRate) label += ' · ' + (found.sampleRate / 1000) + ' kHz';
-    var out = { source: label, expiresInMs: KEEP_MS };
-    if (found.url) { out.url = found.url; out.mimeType = found.format === 'mp3' ? 'audio/mpeg' : found.format === 'm4a' ? 'audio/mp4' : 'audio/flac'; } else out.manifest = found.manifest;
+    var out = { source: label, expiresInMs: (found.url ? 3000 : KEEP_MS) };
+    if (found.url) { out.url = found.url; out.mimeType = found.format === 'mp3' ? 'audio/mpeg' : (found.format === 'm4a'||found.format === 'aac') ? 'audio/mp4' : 'audio/flac'; } else {out.manifest = found.manifest; if(found.mimeType)out.mimeType=found.mimeType;if(found.codec)out.codec=found.codec;}
     if (found.duration) out.durationMs = found.duration;
-    if (key) kept[key] = { at: Date.now(), out: out };
+    if (key && !out.url) kept[key] = { at: Date.now(), out: out }; // 422: only manifest descriptors
     return out;
   });
   myspoti.provide('download-source', function (track) {
-    if(source352Active()){
+    if(AURA_MAURO398.active())return AURA_MAURO398.download(track);
+    if(false && source352Active()){
       var only352=source352Selected();
       if(!only352){AURA_DEV_WRITE('[SOURCE352] download: selezionare esattamente una fonte');return null;}
       AURA_DEV_WRITE('[SOURCE352] download isolamento='+only352);
     }
     // NUVOLA320: download must not fall through to legacy sources either.
-    if (toggle('nuvolaIsolate320', false)) {
+    if (false && toggle('nuvolaIsolate320', false)) {
       var nFound=null;
       try { nFound=AURA_RELAY_319.resolve(track,Date.now()+24000,toggle,AURA_DEV_WRITE); }
       catch (nErr) { AURA_DEV_WRITE('[NUVOLA320] download resolver error '+String(nErr).slice(0,100)); }
@@ -4405,16 +4841,17 @@ return {
 
 
 
-var VAULT_HTML="<!doctype html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{font:15px system-ui;background:#111116;color:#eee;margin:0;padding:18px}h1{color:#ffb34f;font-size:26px;margin:8px 0 12px}h2{font-size:19px;margin:22px 0 6px;color:#ffcb84}p{line-height:1.55;color:#c5c1c9}section{border:1px solid #45414a;border-radius:14px;padding:14px;margin:12px 0}label{display:block;font-weight:600;margin-bottom:9px}input{box-sizing:border-box;width:100%;padding:12px;background:#22212a;color:white;border:1px solid #555;border-radius:9px;font:inherit}button{padding:10px;margin:8px 4px 0 0;background:#49331c;color:#ffce8b;border:1px solid #b47b32;border-radius:8px;font:inherit}small,.status{color:#bcb8c4}.status{margin-top:9px;min-height:18px;font-size:13px}a{color:#ffcb84}</style></head><body><h1>🔐 Vault · Account Manager</h1><p>Qui puoi <b>visualizzare e copiare</b> le credenziali già salvate. Per modificarle usa i campi nativi nelle impostazioni dell’estensione: MySpoti salva automaticamente le modifiche. Il Vault non cambia le credenziali.</p><h2>Qobuz · 3 account</h2><section><label for=\"v0\">Qobuz 1 · Token</label><input id=\"v0\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s0\">Mostra</button><button id=\"c0\">Copia</button></div><div id=\"st0\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v1\">Qobuz 1 · App ID</label><input id=\"v1\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s1\">Mostra</button><button id=\"c1\">Copia</button></div><div id=\"st1\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v2\">Qobuz 1 · App Secret</label><input id=\"v2\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s2\">Mostra</button><button id=\"c2\">Copia</button></div><div id=\"st2\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v3\">Qobuz 2 · Token</label><input id=\"v3\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s3\">Mostra</button><button id=\"c3\">Copia</button></div><div id=\"st3\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v4\">Qobuz 2 · App ID</label><input id=\"v4\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s4\">Mostra</button><button id=\"c4\">Copia</button></div><div id=\"st4\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v5\">Qobuz 2 · App Secret</label><input id=\"v5\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s5\">Mostra</button><button id=\"c5\">Copia</button></div><div id=\"st5\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v6\">Qobuz 3 · Token</label><input id=\"v6\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s6\">Mostra</button><button id=\"c6\">Copia</button></div><div id=\"st6\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v7\">Qobuz 3 · App ID</label><input id=\"v7\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s7\">Mostra</button><button id=\"c7\">Copia</button></div><div id=\"st7\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v8\">Qobuz 3 · App Secret</label><input id=\"v8\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s8\">Mostra</button><button id=\"c8\">Copia</button></div><div id=\"st8\" class=\"status\" aria-live=\"polite\"></div></section><h2>Deezer · 3 manifest</h2><p>In ogni campo Deezer inserisci l’<b>indirizzo HTTPS completo del manifest</b> della tua estensione Deezer, non l’URL di un brano o dell’account. Per ottenerlo apri <b>https://ultramax.vip/eclipse.html</b>, accedi a deezer.com e recupera il cookie <b>arl</b> dagli strumenti sviluppatore (F12 → Application/Storage → Cookies → deezer.com). Incolla l’ARL nella pagina <b>Eclipse Music · Deezer Addon</b>, premi <b>Generate Install Link</b> e copia nei campi nativi Deezer il <b>link HTTPS personale generato</b>, non il cookie ARL. Non condividere credenziali o link privati. I link nella pagina Vault non aprono siti esterni.</p><section><label for=\"v9\">Deezer 1 · Manifest URL</label><input id=\"v9\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s9\">Mostra</button><button id=\"c9\">Copia</button></div><div id=\"st9\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v10\">Deezer 2 · Manifest URL</label><input id=\"v10\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s10\">Mostra</button><button id=\"c10\">Copia</button></div><div id=\"st10\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v11\">Deezer 3 · Manifest URL</label><input id=\"v11\" type=\"password\" readonly placeholder=\"Premi Mostra\" autocomplete=\"off\"><div><button id=\"s11\">Mostra</button><button id=\"c11\">Copia</button></div><div id=\"st11\" class=\"status\" aria-live=\"polite\"></div></section><small>Consiglio: nascondi nuovamente i valori dopo averli consultati. La copia utilizza gli appunti Android; evita di condividere token e URL privati.</small><script>(function(){var keys=[\"qobuzPersonalToken1\", \"qobuzPersonalAppId1\", \"qobuzPersonalAppSecret1\", \"qobuzPersonalToken2\", \"qobuzPersonalAppId2\", \"qobuzPersonalAppSecret2\", \"qobuzPersonalToken3\", \"qobuzPersonalAppId3\", \"qobuzPersonalAppSecret3\", \"eclipseUrl\", \"eclipseUrl2\", \"eclipseUrl3\"],seq=0,pending={};function el(id){return document.getElementById(id)}function ask(n){var id=++seq;pending[id]=n;el(\"st\"+n).textContent=\"Lettura del campo nativo...\";try{MyspotiPage.postMessage(JSON.stringify({kind:\"tigro_vault_read\",key:keys[n],id:id}))}catch(e){el(\"st\"+n).textContent=\"Bridge non disponibile\"}}function copy(n){var i=el(\"v\"+n),s=el(\"st\"+n);if(!i.value){s.textContent=\"Premi prima Mostra\";return}i.type=\"text\";i.focus();i.select();var ok=false;try{ok=document.execCommand(\"copy\")}catch(e){}i.setSelectionRange(0,0);i.blur();s.textContent=ok?\"Copiato negli appunti\":\"Seleziona e copia dalla tastiera\"}keys.forEach(function(k,n){el(\"s\"+n).onclick=function(){var i=el(\"v\"+n);if(i.type===\"text\"){i.type=\"password\";el(\"s\"+n).textContent=\"Mostra\";el(\"st\"+n).textContent=\"Nascosto\"}else if(i.value){i.type=\"text\";el(\"s\"+n).textContent=\"Nascondi\";el(\"st\"+n).textContent=\"Valore visibile\"}else ask(n)};el(\"c\"+n).onclick=function(){copy(n)}});window.addEventListener(\"message\",function(e){var r=e.data;if(typeof r===\"string\"){try{r=JSON.parse(r)}catch(_){return}}if(!r||r.kind!==\"tigro_vault_value\"||!Object.prototype.hasOwnProperty.call(pending,r.id))return;var n=pending[r.id];delete pending[r.id];if(r.key!==keys[n])return;var i=el(\"v\"+n);i.value=r.value||\"\";i.type=\"text\";el(\"s\"+n).textContent=\"Nascondi\";el(\"st\"+n).textContent=i.value?\"Valore letto dalle impostazioni native\":\"Campo non configurato\"})})();</script></body></html>";
+var VAULT_HTML="<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{font:15px system-ui;background:#111116;color:#eee;margin:0;padding:18px}h1{color:#ffb34f;font-size:26px;margin:8px 0 12px}h2{font-size:19px;margin:22px 0 6px;color:#ffcb84}p{line-height:1.55;color:#c5c1c9}section{border:1px solid #45414a;border-radius:14px;padding:14px;margin:12px 0}label{display:block;font-weight:600;margin-bottom:9px}input{box-sizing:border-box;width:100%;padding:12px;background:#22212a;color:white;border:1px solid #555;border-radius:9px;font:inherit}button{padding:10px;margin:8px 4px 0 0;background:#49331c;color:#ffce8b;border:1px solid #b47b32;border-radius:8px;font:inherit}small,.status{color:#bcb8c4}.status{margin-top:9px;min-height:18px;font-size:13px}a{color:#ffcb84}</style></head><body><h1>🔐 Vault · Account Manager</h1><p>View and copy your saved credentials here. To change them, use the native extension settings: MySpoti saves your updates automatically. The Vault is read-only.</p><h2>Personal Qobuz Pool · 3 slots</h2><section><label for=\"v0\">Qobuz 1 · Token</label><input id=\"v0\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s0\">Show</button><button id=\"c0\">Copy</button></div><div id=\"st0\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v1\">Qobuz 1 · App ID</label><input id=\"v1\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s1\">Show</button><button id=\"c1\">Copy</button></div><div id=\"st1\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v2\">Qobuz 1 · App Secret</label><input id=\"v2\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s2\">Show</button><button id=\"c2\">Copy</button></div><div id=\"st2\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v3\">Qobuz 2 · Token</label><input id=\"v3\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s3\">Show</button><button id=\"c3\">Copy</button></div><div id=\"st3\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v4\">Qobuz 2 · App ID</label><input id=\"v4\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s4\">Show</button><button id=\"c4\">Copy</button></div><div id=\"st4\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v5\">Qobuz 2 · App Secret</label><input id=\"v5\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s5\">Show</button><button id=\"c5\">Copy</button></div><div id=\"st5\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v6\">Qobuz 3 · Token</label><input id=\"v6\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s6\">Show</button><button id=\"c6\">Copy</button></div><div id=\"st6\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v7\">Qobuz 3 · App ID</label><input id=\"v7\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s7\">Show</button><button id=\"c7\">Copy</button></div><div id=\"st7\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v8\">Qobuz 3 · App Secret</label><input id=\"v8\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s8\">Show</button><button id=\"c8\">Copy</button></div><div id=\"st8\" class=\"status\" aria-live=\"polite\"></div></section><h2>Personal Deezer Pool · 3 slots</h2><p>Enter the <b>full private HTTPS manifest URL</b> for each Deezer slot, not a track or account URL. If you use Eclipse Music, generate your personal install link through <b>https://ultramax.vip/eclipse.html</b> and paste the resulting HTTPS manifest URL into the native settings. Do not paste an ARL cookie into a manifest field. Never share cookies, credentials, or private links.</p><section><label for=\"v9\">Deezer 1 · Manifest URL</label><input id=\"v9\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s9\">Show</button><button id=\"c9\">Copy</button></div><div id=\"st9\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v10\">Deezer 2 · Manifest URL</label><input id=\"v10\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s10\">Show</button><button id=\"c10\">Copy</button></div><div id=\"st10\" class=\"status\" aria-live=\"polite\"></div></section><section><label for=\"v11\">Deezer 3 · Manifest URL</label><input id=\"v11\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s11\">Show</button><button id=\"c11\">Copy</button></div><div id=\"st11\" class=\"status\" aria-live=\"polite\"></div></section><h2>Tidal Pool · 1 slot</h2><section><label for=\"v12\">Tidal · Refresh Pool</label><input id=\"v12\" type=\"password\" readonly placeholder=\"Select Show\" autocomplete=\"off\"><div><button id=\"s12\">Show</button><button id=\"c12\">Copy</button></div><div id=\"st12\" class=\"status\" aria-live=\"polite\"></div></section><small>Tip: hide values after viewing them. Copying uses the Android clipboard; avoid sharing private tokens or URLs.</small><script>(function(){var keys=[\"qobuzPersonalToken1\", \"qobuzPersonalAppId1\", \"qobuzPersonalAppSecret1\", \"qobuzPersonalToken2\", \"qobuzPersonalAppId2\", \"qobuzPersonalAppSecret2\", \"qobuzPersonalToken3\", \"qobuzPersonalAppId3\", \"qobuzPersonalAppSecret3\", \"eclipseUrl\", \"eclipseUrl2\", \"eclipseUrl3\", \"mauroTidalPool433\"],seq=0,pending={};function el(id){return document.getElementById(id)}function ask(n){var id=++seq;pending[id]=n;el(\"st\"+n).textContent=\"Reading saved value...\";try{MyspotiPage.postMessage(JSON.stringify({kind:\"tigro_vault_read\",key:keys[n],id:id}))}catch(e){el(\"st\"+n).textContent=\"Vault bridge unavailable\"}}function copy(n){var i=el(\"v\"+n),s=el(\"st\"+n);if(!i.value){s.textContent=\"Select Show first\";return}i.type=\"text\";i.focus();i.select();var ok=false;try{ok=document.execCommand(\"copy\")}catch(e){}i.setSelectionRange(0,0);i.blur();s.textContent=ok?\"Copied to clipboard\":\"Select and copy using your keyboard\"}keys.forEach(function(k,n){el(\"s\"+n).onclick=function(){var i=el(\"v\"+n);if(i.type===\"text\"){i.type=\"password\";el(\"s\"+n).textContent=\"Show\";el(\"st\"+n).textContent=\"Hidden\"}else if(i.value){i.type=\"text\";el(\"s\"+n).textContent=\"Hide\";el(\"st\"+n).textContent=\"Value visible\"}else ask(n)};el(\"c\"+n).onclick=function(){copy(n)}});window.addEventListener(\"message\",function(e){var r=e.data;if(typeof r===\"string\"){try{r=JSON.parse(r)}catch(_){return}}if(!r||r.kind!==\"tigro_vault_value\"||!Object.prototype.hasOwnProperty.call(pending,r.id))return;var n=pending[r.id];delete pending[r.id];if(r.key!==keys[n])return;var i=el(\"v\"+n);i.value=r.value||\"\";i.type=\"text\";el(\"s\"+n).textContent=\"Hide\";el(\"st\"+n).textContent=i.value?\"Value loaded from settings\":\"Not configured\"})})();</script></body></html>";
 
 // Vault bridge: allowlisted keys only, no secrets in logs.
 (function(){
 var keys=TIGRO_VAULT_KEYS.slice();
 myspoti.provide("page",function(){return {title:"Vault · Account Manager",html:VAULT_HTML};});
 myspoti.provide("message",function(msg){
- if(!msg||keys.indexOf(msg.key)<0)return {kind:'tigro_vault_result',ok:false,error:'Campo non valido',id:msg&&msg.id};
+ if(!msg||keys.indexOf(msg.key)<0)return {kind:'tigro_vault_result',ok:false,error:'Invalid field',id:msg&&msg.id};
  var k='tigro_vault_account_v1_'+msg.key;
  try{
+  if(msg.kind==='tigro_vault_read' && msg.key==='mauroTidalPool433')return {kind:'tigro_vault_value',key:msg.key,value:String(myspoti.settings.get(msg.key)||''),source:'settings',id:msg.id};
   if(msg.kind==='tigro_vault_read'){
    var v=myspoti.settings.get(msg.key)||'',source='native';
    return {kind:'tigro_vault_value',key:msg.key,value:String(v),source:source,id:msg.id};
@@ -4422,14 +4859,14 @@ myspoti.provide("message",function(msg){
   if(msg.kind==='tigro_vault_probe'){return {kind:'tigro_vault_result',key:msg.key,ok:true,action:'probe',id:msg.id};}
   if(msg.kind==='tigro_vault_verify'){var chk=myspoti.storage.get(k);return {kind:'tigro_vault_result',key:msg.key,ok:true,action:'verify',verified:typeof chk==='string'&&chk.length>0,id:msg.id};}
   if(msg.kind==='tigro_vault_save'){
-   var v=String(msg.value||'');if(!v||v.length>4096)return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Lunghezza non valida',id:msg.id};
+   var v=String(msg.value||'');if(!v||v.length>4096)return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Invalid length',id:msg.id};
    myspoti.storage.set(k,v);
-   if(myspoti.storage.get(k)!==v)return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Verifica salvataggio fallita',id:msg.id};
+   if(myspoti.storage.get(k)!==v)return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Save verification failed',id:msg.id};
    return {kind:'tigro_vault_result',key:msg.key,ok:true,action:'save',id:msg.id};
   }
   if(msg.kind==='tigro_vault_reset'){
    myspoti.storage.set(k,'');return {kind:'tigro_vault_result',key:msg.key,ok:true,action:'reset',id:msg.id};
   }
- }catch(e){return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Storage non disponibile',id:msg.id};}
- return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Azione non supportata',id:msg.id};
+ }catch(e){return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Storage unavailable',id:msg.id};}
+ return {kind:'tigro_vault_result',key:msg.key,ok:false,error:'Unsupported action',id:msg.id};
 });})();
