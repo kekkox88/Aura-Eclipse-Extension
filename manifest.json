@@ -1,8 +1,8 @@
 {
   "id": "aura.eclipse.tigro",
   "name": "Aura Eclipse · Nuvola",
-  "version": "6.0.7",
-  "versionCode": 613,
+  "version": "6.0.8",
+  "versionCode": 614,
   "apiVersion": 1,
   "minAppVersion": "2.1.0",
   "author": "kekkox88",
@@ -269,5 +269,134 @@
       "🔐 Manage accounts in Vault; automatic session checks are enabled. Advanced logs are OFF."
     ]
   },
-  "changelog": "What's New · 6.0.7 ☁️\n🚀 Faster audio discovery with NUVOLA coordination.\n🐯 TIGRO: optimized FLAC/Hi-Res searches.\n🐳 WHALE: refined HQ-to-MP3/AAC rescue for rare tracks.\n🐦 COLIBRÌ: improved compressed-audio fallback order.\n🌊 Tidal: multi-token refresh pool and automatic session checks.\n🔐 Vault: account management and diagnostics.\n⚙️ Refined source fallback, timeouts and reliability.\n📖 Setup, engine priorities and Tidal pool guide: README on GitHub."
+  "changelog": "🌍 Italian and English manifest text for MySpoti.\n🔐 Localized settings, account and Vault labels, permission explanations and welcome.\n📖 Bilingual README.\n🐯🐳🐦☁️ Audio engines and playback logic are unchanged from Build 613.",
+  "translations": {
+    "it": {
+      "description": "Aura Eclipse · Nuvola ☁️ — Estensione audio 3 in 1 per MySpoti!\n🐯 TIGRO: ricerca rapida di audio FLAC e Hi-Res (predefinito).\n🐳 WHALE: recupero di brani rari; ricerca MP3/AAC dopo quella in alta qualità.\n🐦 COLIBRÌ: streaming MP3 a consumo ridotto di dati.\n☁️ NUVOLA: coordinatore intelligente automatico.\n🌞 SOLE: modalità classica disponibile in Manutenzione.\n🔐 VAULT: gestione degli account Qobuz, Tidal e Deezer.",
+      "actions": {
+        "audio.source": "Cerca audio compatibile tra i servizi abilitati.",
+        "download.source": "Fornisce flussi audio compatibili per i download.",
+        "network": "Accede ai servizi audio configurati e agli indirizzi multimediali autorizzati.",
+        "webview.auth": "Apre la verifica dei servizi solo quando necessario.",
+        "storage": "Memorizza sessioni, cache e stato dei pool di account.",
+        "settings.page": "Configura motori audio, pool personali e log.",
+        "notify": "Mostra risultati delle verifiche e avvisi pertinenti.",
+        "webview.page": "Apre il gestore privato degli account Vault.",
+        "playback.events": "Pianifica la verifica degli account in base alla riproduzione."
+      },
+      "welcome": {
+        "message": "🐯🐳🐦☁️ Benvenuto in Aura Eclipse · Nuvola!\nTre motori audio. Un unico coordinatore intelligente.",
+        "steps": [
+          "🐯 TIGRO è attivo per impostazione predefinita: FLAC/Hi-Res rapidi. Non occorre attivare tutti e tre i motori.",
+          "🐳 Attiva WHALE per brani rari, edit e remix: prima HQ, poi MP3/AAC.",
+          "🐦 Attiva COLIBRÌ per riprodurre MP3/AAC consumando meno dati.",
+          "☁️ NUVOLA è integrato. Se necessario, attiva 🌞 SOLE in Manutenzione per usare il coordinatore classico.",
+          "🔐 Gestisci gli account nel Vault. La verifica automatica è attiva; i log avanzati sono disattivati."
+        ]
+      },
+      "settings": {
+        "tigroHQ": {
+          "label": "🐯 TIGRO · HQ Fast",
+          "description": "Attivo per impostazione predefinita. FLAC/Hi-Res rapido per l’ascolto quotidiano."
+        },
+        "splashWhale": {
+          "label": "🐳 WHALE · Rare Rescue",
+          "description": "Facoltativo. Per brani rari, edit e remix: prima la qualità HQ, poi il recupero in formato lossy."
+        },
+        "colibriEco": {
+          "label": "🐦 COLIBRÌ · Eco Stream",
+          "description": "Facoltativo. Riproduzione MP3/AAC per ridurre il consumo di dati mobili."
+        },
+        "autoVerify": {
+          "label": "🔐 Verifica automatica delle sessioni",
+          "description": "Ripristina automaticamente le sessioni dei servizi quando possibile."
+        },
+        "verify_all": {
+          "label": "🔐 Controlla le sessioni",
+          "description": "Controlla manualmente lo stato delle sessioni dei servizi."
+        },
+        "forceVerify": {
+          "label": "🔐 Verifica nuovamente le sessioni",
+          "description": "Ripete la verifica delle sessioni dei servizi."
+        },
+        "soleLegacyCore": {
+          "label": "🌞 SOLE · Core classico (Manutenzione)",
+          "description": "Disattivato: usa Nuvola. Attivato: evita le richieste parallele ai server e usa il coordinatore sequenziale classico. Si applica dalla successiva richiesta audio."
+        },
+        "clearCache": {
+          "label": "🛠️ Svuota cache e cooldown",
+          "description": "Svuota le cache di ricerca e azzera i tempi di attesa dei servizi, senza eliminare gli account salvati. Da usare dopo la scadenza dei link audio."
+        },
+        "forget": {
+          "label": "🛠️ Reimposta le sessioni dei servizi",
+          "description": "Cancella le sessioni dei servizi per eseguire una nuova verifica. Le impostazioni degli account personali restano salvate."
+        },
+        "qobuzPersonalToken1": {
+          "label": "🔐 Pool Qobuz personale · Slot 1 · Token di accesso",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppId1": {
+          "label": "🔐 Pool Qobuz personale · Slot 1 · ID app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppSecret1": {
+          "label": "🔐 Pool Qobuz personale · Slot 1 · Segreto app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalToken2": {
+          "label": "🔐 Pool Qobuz personale · Slot 2 · Token di accesso",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppId2": {
+          "label": "🔐 Pool Qobuz personale · Slot 2 · ID app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppSecret2": {
+          "label": "🔐 Pool Qobuz personale · Slot 2 · Segreto app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalToken3": {
+          "label": "🔐 Pool Qobuz personale · Slot 3 · Token di accesso",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppId3": {
+          "label": "🔐 Pool Qobuz personale · Slot 3 · ID app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "qobuzPersonalAppSecret3": {
+          "label": "🔐 Pool Qobuz personale · Slot 3 · Segreto app",
+          "description": "Credenziale privata dell’account. Consultala nel Vault e non condividerla."
+        },
+        "eclipseUrl": {
+          "label": "🔐 Pool Deezer personale · Slot 1 · URL manifest",
+          "description": "Link HTTPS privato al tuo manifest Eclipse (non è il cookie ARL). Mantienilo riservato."
+        },
+        "eclipseUrl2": {
+          "label": "🔐 Pool Deezer personale · Slot 2 · URL manifest",
+          "description": "Link HTTPS privato al tuo manifest Eclipse (non è il cookie ARL). Mantienilo riservato."
+        },
+        "eclipseUrl3": {
+          "label": "🔐 Pool Deezer personale · Slot 3 · URL manifest",
+          "description": "Link HTTPS privato al tuo manifest Eclipse (non è il cookie ARL). Mantienilo riservato."
+        },
+        "devLogs": {
+          "label": "📋 Log avanzati",
+          "description": "Attiva i log diagnostici dettagliati. Disattivati per impostazione predefinita; i log di base di MySpoti restano disponibili."
+        },
+        "resetQobuzCooldown": {
+          "label": "🛠️ Azzera i cooldown Qobuz",
+          "description": "Azzera i tempi di attesa temporanei degli account Qobuz senza cancellare le credenziali."
+        },
+        "mauroTidalPool433": {
+          "label": "🔐 Tidal · Pool di refresh",
+          "description": "Impostazione unica del pool Tidal per l’accesso autorizzato al catalogo. Consultala nel Vault."
+        },
+        "mauroTidalProbe433": {
+          "label": "🛠️ Verifica il pool Tidal",
+          "description": "Controlla lo stato del pool di refresh senza registrare le credenziali nei log."
+        }
+      },
+      "changelog": "🌍 Testi del manifest MySpoti in italiano e inglese.\n🔐 Tradotte le impostazioni, le voci di account e Vault, le motivazioni dei permessi e il benvenuto.\n📖 README bilingue.\n🐯🐳🐦☁️ Motori e logica audio invariati rispetto alla Build 613."
+    }
+  }
 }

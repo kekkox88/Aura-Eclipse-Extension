@@ -1,4 +1,4 @@
-# Aura Eclipse 6.0.7 · Nuvola · Build 613 ☁️
+# Aura Eclipse 6.0.8 · Nuvola · Build 614 ☁️
 
 **Three audio engines. One smart coordinator.**
 
@@ -57,12 +57,12 @@ The current parser also accepts semicolons, whitespace, and new lines, and ignor
 
 **Credentials:** Some provider credentials in this project were intentionally shared publicly by their owner for testing. They are not guaranteed to remain valid or grant access indefinitely. Never publish your own private account credentials or unredacted diagnostic logs.
 
-## Release notes — 6.0.7 (Build 613)
+## Release notes — 6.0.8 (Build 614)
 
-- Three clearly differentiated audio strategies: TIGRO, WHALE, and COLIBRÌ.
-- NUVOLA smart coordination with SOLE compatibility option.
-- Source recovery and search-performance improvements carried forward from the 6.0.x development line.
-- Updated guidance for switches, account management, and playback caching.
+- 🌍 Italian and English manifest text in MySpoti, including settings, account and Vault labels, permission explanations, welcome and release notes.
+- 📖 Bilingual README.
+- 🐯🐳🐦☁️ Tigro, Whale, Colibrì and Nuvola use the same audio logic as Build 613.
+
 
 ## Credits
 
@@ -72,3 +72,77 @@ Created and maintained by **kekkox88**. Thanks to **Mauro (@solidsnakeater)** fo
 
 Before reporting a problem, include the Aura Eclipse version/build, enabled engines, and a redacted MySpoti diagnostic report. **Never publish credentials or session tokens in logs.**
 
+
+---
+
+# 🇮🇹 Guida italiana
+
+**Tre motori audio. Un unico coordinatore intelligente.**
+
+Aura Eclipse è un'estensione audio per MySpoti sviluppata da **kekkox88**. Cerca brani nelle fonti audio compatibili attraverso tre strategie selezionabili e un sistema di coordinamento automatico.
+
+## Per iniziare (30 secondi)
+
+1. Installa **Aura Eclipse** dallo store delle estensioni MySpoti oppure importa il pacchetto della release.
+2. Apri **MySpoti → Estensioni → Aura Eclipse** e lascia attivo **TIGRO** per un ascolto HQ rapido.
+3. Riproduci normalmente un brano. Attiva **WHALE** per ampliare la ricerca oppure **COLIBRÌ** per ridurre il consumo di dati.
+4. Se un servizio richiede l'autenticazione, usa la verifica delle sessioni integrata o **Vault · Account Manager**, secondo necessità. Non tutte le fonti richiedono la configurazione di un account.
+
+**Importante:** non è necessario attivare tutti e tre i motori. Per iniziare, è consigliato usare **solo TIGRO**.
+
+## Quali motori attivare?
+
+| Motore | Predefinito | Funzione | Quando usarlo |
+| --- | --- | --- | --- |
+| 🐯 **TIGRO · HQ Fast** | **ATTIVO** | Ricerca rapida di FLAC/Hi-Res | Ascolto quotidiano con priorità alla qualità lossless |
+| 🐳 **WHALE · Rare Rescue** | Disattivato | Cerca prima HQ, poi MP3/AAC se necessario | Brani rari, edit, remix o brani non disponibili in HQ |
+| 🐦 **COLIBRÌ · Eco Stream** | Disattivato | Privilegia MP3/AAC compressi | Risparmio di dati mobili o preferenza per l'audio lossy |
+
+**Configurazioni consigliate**
+
+- **Ascolto HQ:** TIGRO attivo; WHALE e COLIBRÌ disattivati (configurazione iniziale).
+- **Recupero più ampio:** attiva WHALE quando desideri un fallback ai formati compressi.
+- **Risparmio dati:** usa COLIBRÌ quando preferisci l'audio compresso.
+
+I selettori rappresentano **strategie di ricerca, non tre servizi musicali separati**. Attivarli tutti non è necessario e non garantisce una qualità superiore. Se più motori sono attivi, **COLIBRÌ ha la precedenza su WHALE, che a sua volta precede TIGRO**. La riproduzione dipende anche dalla disponibilità delle fonti e dall'audio già presente nella cache di MySpoti.
+
+## Dietro le quinte
+
+- ☁️ **NUVOLA · Smart Coordinator:** coordina automaticamente le ricerche e gestisce la cache dei metadati; non richiede un selettore dedicato.
+- 🌞 **SOLE · Legacy Core:** alternativa di compatibilità in Manutenzione; la modifica si applica dalla richiesta audio successiva.
+- 🔐 **Vault · Account Manager:** gestisce i dati e le sessioni dei tuoi account compatibili. Non condividere token o credenziali.
+- 🔄 **Verifica automatica delle sessioni:** attiva per impostazione predefinita dove supportata.
+- 🛠️ **Log avanzati:** disattivati per impostazione predefinita; abilitali soltanto per diagnosticare un problema.
+
+## Pool di refresh token Tidal
+
+Nel **Vault · Account Manager**, apri **Tidal · Refresh Pool** e inserisci uno o più **refresh token OAuth2** di Tidal, preferibilmente separati da virgole:
+
+```text
+REFRESH_TOKEN_1,REFRESH_TOKEN_2,REFRESH_TOKEN_3
+```
+
+Il parser accetta anche punti e virgola, spazi e ritorni a capo, ignorando i duplicati. **Non inserire access token, indirizzi email o ID utente.** Il pool può provare un altro token quando il precedente non è disponibile. Un refresh riuscito conferma l'autenticazione, **non** la riproduzione diretta da Tidal: il pool permette la ricerca nel catalogo, mentre l'audio passa attraverso i resolver configurati. I token possono scadere o essere revocati.
+
+## Comportamenti importanti
+
+**Cache di riproduzione:** MySpoti può riutilizzare la versione già memorizzata di un brano dopo il cambio di motore. Per esempio, passando da COLIBRÌ a TIGRO, un MP3 in cache non viene necessariamente sostituito da un FLAC. Questo non dimostra che la nuova ricerca sia fallita.
+
+**Disponibilità audio:** formati e tempi di risposta dipendono dal brano, dai servizi accessibili, dalla connessione e dalla validità delle sessioni. FLAC/Hi-Res non è garantito per ogni brano.
+
+**Credenziali:** alcune credenziali dei servizi impiegate nel progetto sono state condivise pubblicamente dal rispettivo proprietario per i test. Non è garantito che rimangano valide o diano accesso indefinitamente. Non pubblicare credenziali private né log diagnostici non oscurati.
+
+## Novità — 6.0.8 (Build 614)
+
+- 🌍 Testi del manifest in italiano e inglese su MySpoti, comprese impostazioni, voci di account e Vault, motivazioni dei permessi, benvenuto e changelog.
+- 📖 README bilingue.
+- 🐯🐳🐦☁️ Tigro, Whale, Colibrì e Nuvola usano la stessa logica audio della Build 613.
+
+
+## Ringraziamenti
+
+Creato e mantenuto da **kekkox88**. Grazie a **Mauro (@solidsnakeater)** per i contributi tecnici e a **Lello (@PUNITOR_211080)** per il beta testing.
+
+## Assistenza
+
+Quando segnali un problema, indica versione/build di Aura Eclipse, motori attivi e un report diagnostico MySpoti con i dati sensibili oscurati. **Non pubblicare mai credenziali o token di sessione nei log.**
